@@ -35,8 +35,6 @@ contract VotingEscrow is ReentrancyGuard {
         uint256 ts
     );
     event TransferOwnership(address owner);
-    event UpdatePenaltyRecipient(address recipient);
-    event CollectPenalty(uint256 amount, address recipient);
     event Unlock();
 
     // Shared global state
@@ -89,14 +87,12 @@ contract VotingEscrow is ReentrancyGuard {
     }
 
     /// @notice Initializes state
-    /// @param _owner The owner is able to update `owner`, `penaltyRecipient` and `penaltyRate`
-    /// @param _penaltyRecipient The recipient of penalty paid by lock quitters
+    /// @param _owner The owner is able to update `owner`
     /// @param _token The token locked in order to obtain voting power
     /// @param _name The name of the voting token
     /// @param _symbol The symbol of the voting token
     constructor(
         address _owner,
-        address _penaltyRecipient,
         address _token,
         string memory _name,
         string memory _symbol
@@ -112,7 +108,6 @@ contract VotingEscrow is ReentrancyGuard {
         name = _name;
         symbol = _symbol;
         owner = _owner;
-        penaltyRecipient = _penaltyRecipient;
     }
 
     /// ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
@@ -126,21 +121,6 @@ contract VotingEscrow is ReentrancyGuard {
         require(msg.sender == owner, "Only owner");
         owner = _addr;
         emit TransferOwnership(_addr);
-    }
-
-    /// @notice Updates the recipient of the accumulated penalty paid by quitters
-    function updatePenaltyRecipient(address _addr) external {
-        require(msg.sender == owner, "Only owner");
-        penaltyRecipient = _addr;
-        emit UpdatePenaltyRecipient(_addr);
-    }
-
-    /// @notice Removes quitlock penalty by setting it to zero
-    /// @dev This is an irreversible action
-    function unlock() external {
-        require(msg.sender == owner, "Only owner");
-        maxPenalty = 0;
-        emit Unlock();
     }
 
     /// ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
@@ -601,32 +581,13 @@ contract VotingEscrow is ReentrancyGuard {
         // Both can have >= 0 amount
         _checkpoint(msg.sender, locked_, newLocked);
         // apply penalty
-        uint256 penaltyRate = _calculatePenaltyRate(locked_.end);
+        uint256 penaltyRate = 0;
         uint256 penaltyAmount = (value * penaltyRate) / 10**18; // quitlock_penalty is in 18 decimals precision
         penaltyAccumulated += penaltyAmount;
         uint256 remainingAmount = value - penaltyAmount;
         // Send back remaining tokens
         require(token.transfer(msg.sender, remainingAmount), "Transfer failed");
         emit Withdraw(msg.sender, value, LockAction.QUIT, block.timestamp);
-    }
-
-    // Calculate penalty rate (decreasing linearly)
-    function _calculatePenaltyRate(uint256 end)
-        internal
-        view
-        returns (uint256)
-    {
-        // We know that end > block.timestamp because expired locks cannot be quitted
-        return ((end - block.timestamp) * maxPenalty) / MAXTIME;
-    }
-
-    /// @notice Collect accumulated penalty from quitters
-    /// @dev Everyone can collect but penalty is sent to `penaltyRecipient`
-    function collectPenalty() external {
-        uint256 amount = penaltyAccumulated;
-        penaltyAccumulated = 0;
-        require(token.transfer(penaltyRecipient, amount), "Transfer failed");
-        emit CollectPenalty(amount, penaltyRecipient);
     }
 
     /// ~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
