@@ -38,9 +38,9 @@ contract VotingEscrow is ReentrancyGuard {
     event Unlock();
 
     // Shared global state
-    IERC20 public token;  
+    IERC20 public token; //TODO: Remove, causes stack too deep?
     uint256 public constant WEEK = 7 days;
-    uint256 public constant MAXTIME = 365 days;
+    uint256 public constant LOCKTIME = 1825 days;
     uint256 public constant MULTIPLIER = 10**18;
 
     // Lock state
@@ -101,10 +101,6 @@ contract VotingEscrow is ReentrancyGuard {
     }
 
     /// ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
-    ///       Owner Functions       ///
-    /// ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
-
-    /// ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
     ///       LOCK MANAGEMENT       ///
     /// ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
 
@@ -158,7 +154,7 @@ contract VotingEscrow is ReentrancyGuard {
             if (_oldLocked.end > block.timestamp && _oldLocked.delegated > 0) {
                 userOldPoint.slope =
                     _oldLocked.delegated /
-                    int128(int256(MAXTIME));
+                    int128(int256(LOCKTIME));
                 userOldPoint.bias =
                     userOldPoint.slope *
                     int128(int256(_oldLocked.end - block.timestamp));
@@ -166,7 +162,7 @@ contract VotingEscrow is ReentrancyGuard {
             if (_newLocked.end > block.timestamp && _newLocked.delegated > 0) {
                 userNewPoint.slope =
                     _newLocked.delegated /
-                    int128(int256(MAXTIME));
+                    int128(int256(LOCKTIME));
                 userNewPoint.bias =
                     userNewPoint.slope *
                     int128(int256(_newLocked.end - block.timestamp));
@@ -322,20 +318,17 @@ contract VotingEscrow is ReentrancyGuard {
     }
 
     // See IVotingEscrow for documentation
-    function createLock(uint256 _value, uint256 _unlockTime)
+    function createLock(uint256 _value)
         external
         payable
         nonReentrant
     {
-        uint256 unlock_time = _floorToWeek(_unlockTime); // Locktime is rounded down to weeks
+        uint256 unlock_time = _floorToWeek(block.timestamp + LOCKTIME); // Locktime is rounded down to weeks
         LockedBalance memory locked_ = locked[msg.sender];
         // Validate inputs
         require(_value > 0, "Only non zero amount");
         require(msg.value == _value, "Invalid value");
         require(locked_.amount == 0, "Lock exists");
-        require(unlock_time >= locked_.end, "Only increase lock end"); // from using quitLock, user should increaseAmount instead
-        require(unlock_time > block.timestamp, "Only future lock end");
-        require(unlock_time <= block.timestamp + MAXTIME, "Exceeds maxtime");
         // Update lock and voting power (checkpoint)
         locked_.amount += int128(int256(_value));
         locked_.end = unlock_time;
@@ -377,6 +370,7 @@ contract VotingEscrow is ReentrancyGuard {
             newLocked = _copyLock(locked_);
             newLocked.amount += int128(int256(_value));
             newLocked.delegated += int128(int256(_value));
+            newLocked.end = unlockTime + LOCKTIME;
             locked[msg.sender] = newLocked;
         } else {
             // Delegated lock, update sender's lock first
@@ -388,6 +382,7 @@ contract VotingEscrow is ReentrancyGuard {
             require(locked_.end > block.timestamp, "Delegatee lock expired");
             newLocked = _copyLock(locked_);
             newLocked.delegated += int128(int256(_value));
+            newLocked.end = unlockTime + LOCKTIME;
             locked[delegatee] = newLocked;
             emit Deposit(
                 delegatee,
@@ -400,37 +395,6 @@ contract VotingEscrow is ReentrancyGuard {
         // Checkpoint only for delegatee
         _checkpoint(delegatee, locked_, newLocked);
         emit Deposit(msg.sender, _value, unlockTime, action, block.timestamp);
-    }
-
-    // See IVotingEscrow for documentation
-    function increaseUnlockTime(uint256 _unlockTime)
-        external
-        nonReentrant
-    {
-        LockedBalance memory locked_ = locked[msg.sender];
-        uint256 unlock_time = _floorToWeek(_unlockTime); // Locktime is rounded down to weeks
-        // Validate inputs
-        require(locked_.amount > 0, "No lock");
-        require(unlock_time > locked_.end, "Only increase lock end");
-        require(unlock_time <= block.timestamp + MAXTIME, "Exceeds maxtime");
-        // Update lock
-        uint256 oldUnlockTime = locked_.end;
-        locked_.end = unlock_time;
-        locked[msg.sender] = locked_;
-        if (locked_.delegatee == msg.sender) {
-            // Undelegated lock
-            require(oldUnlockTime > block.timestamp, "Lock expired");
-            LockedBalance memory oldLocked = _copyLock(locked_);
-            oldLocked.end = unlock_time;
-            _checkpoint(msg.sender, oldLocked, locked_);
-        }
-        emit Deposit(
-            msg.sender,
-            0,
-            unlock_time,
-            LockAction.INCREASE_TIME,
-            block.timestamp
-        );
     }
 
     // See IVotingEscrow for documentation
