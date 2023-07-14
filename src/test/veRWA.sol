@@ -38,7 +38,7 @@ contract VotingEscrow is ReentrancyGuard {
     event Unlock();
 
     // Shared global state
-    IERC20 public token;
+    IERC20 public token;  
     uint256 public constant WEEK = 7 days;
     uint256 public constant MAXTIME = 365 days;
     uint256 public constant MULTIPLIER = 10**18;
@@ -83,15 +83,12 @@ contract VotingEscrow is ReentrancyGuard {
     }
 
     /// @notice Initializes state
-    /// @param _token The token locked in order to obtain voting power
     /// @param _name The name of the voting token
     /// @param _symbol The symbol of the voting token
     constructor(
-        address _token,
         string memory _name,
         string memory _symbol
     ) {
-        token = IERC20(_token);
         pointHistory[0] = Point({
             bias: int128(0),
             slope: int128(0),
@@ -327,12 +324,14 @@ contract VotingEscrow is ReentrancyGuard {
     // See IVotingEscrow for documentation
     function createLock(uint256 _value, uint256 _unlockTime)
         external
+        payable
         nonReentrant
     {
         uint256 unlock_time = _floorToWeek(_unlockTime); // Locktime is rounded down to weeks
         LockedBalance memory locked_ = locked[msg.sender];
         // Validate inputs
         require(_value > 0, "Only non zero amount");
+        require(msg.value == _value, "Invalid value");
         require(locked_.amount == 0, "Lock exists");
         require(unlock_time >= locked_.end, "Only increase lock end"); // from using quitLock, user should increaseAmount instead
         require(unlock_time > block.timestamp, "Only future lock end");
@@ -344,11 +343,7 @@ contract VotingEscrow is ReentrancyGuard {
         locked_.delegatee = msg.sender;
         locked[msg.sender] = locked_;
         _checkpoint(msg.sender, LockedBalance(0, 0, 0, address(0)), locked_);
-        // Deposit locked tokens
-        require(
-            token.transferFrom(msg.sender, address(this), _value),
-            "Transfer failed"
-        );
+
         emit Deposit(
             msg.sender,
             _value,
@@ -362,11 +357,13 @@ contract VotingEscrow is ReentrancyGuard {
     // @dev A lock is active until both lock.amount==0 and lock.end<=block.timestamp
     function increaseAmount(uint256 _value)
         external
+        payable
         nonReentrant
     {
         LockedBalance memory locked_ = locked[msg.sender];
         // Validate inputs
         require(_value > 0, "Only non zero amount");
+        require(msg.value == _value, "Invalid value");
         require(locked_.amount > 0, "No lock");
         require(locked_.end > block.timestamp, "Lock expired");
         // Update lock
@@ -402,11 +399,6 @@ contract VotingEscrow is ReentrancyGuard {
         }
         // Checkpoint only for delegatee
         _checkpoint(delegatee, locked_, newLocked);
-        // Deposit locked tokens
-        require(
-            token.transferFrom(msg.sender, address(this), _value),
-            "Transfer failed"
-        );
         emit Deposit(msg.sender, _value, unlockTime, action, block.timestamp);
     }
 
@@ -462,7 +454,8 @@ contract VotingEscrow is ReentrancyGuard {
         // Both can have >= 0 amount
         _checkpoint(msg.sender, locked_, newLocked);
         // Send back deposited tokens
-        require(token.transfer(msg.sender, value), "Transfer failed");
+        bool sent = payable(msg.sender).send(value);
+        require(sent, "Failed to send");
         emit Withdraw(msg.sender, value, LockAction.WITHDRAW, block.timestamp);
     }
 
@@ -540,34 +533,6 @@ contract VotingEscrow is ReentrancyGuard {
         }
     }
 
-    /// ~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
-    ///         QUIT LOCK          ///
-    /// ~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
-
-    // See IVotingEscrow for documentation
-    function quitLock() external nonReentrant {
-        LockedBalance memory locked_ = locked[msg.sender];
-        // Validate inputs
-        require(locked_.amount > 0, "No lock");
-        require(locked_.end > block.timestamp, "Lock expired");
-        require(locked_.delegatee == msg.sender, "Lock delegated");
-        // Update lock
-        uint256 value = uint256(uint128(locked_.amount));
-        LockedBalance memory newLocked = _copyLock(locked_);
-        newLocked.amount = 0;
-        newLocked.delegated -= int128(int256(value));
-        newLocked.delegatee = address(0);
-        locked[msg.sender] = newLocked;
-        newLocked.end = 0;
-        newLocked.delegated = 0;
-        // oldLocked can have either expired <= timestamp or zero end
-        // currentLock has only 0 end
-        // Both can have >= 0 amount
-        _checkpoint(msg.sender, locked_, newLocked);
-        // Send back remaining tokens
-        require(token.transfer(msg.sender, value), "Transfer failed");
-        emit Withdraw(msg.sender, value, LockAction.QUIT, block.timestamp);
-    }
 
     /// ~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
     ///            GETTERS         ///
