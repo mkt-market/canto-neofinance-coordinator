@@ -42,10 +42,6 @@ contract VotingEscrow is ReentrancyGuard {
     uint256 public constant WEEK = 7 days;
     uint256 public constant MAXTIME = 365 days;
     uint256 public constant MULTIPLIER = 10**18;
-    address public owner;
-    address public penaltyRecipient; // receives collected penalty payments
-    uint256 public maxPenalty = 10**18; // penalty for quitters with MAXTIME remaining lock
-    uint256 public penaltyAccumulated; // accumulated and unwithdrawn penalty payments
 
     // Lock state
     uint256 public globalEpoch;
@@ -87,12 +83,10 @@ contract VotingEscrow is ReentrancyGuard {
     }
 
     /// @notice Initializes state
-    /// @param _owner The owner is able to update `owner`
     /// @param _token The token locked in order to obtain voting power
     /// @param _name The name of the voting token
     /// @param _symbol The symbol of the voting token
     constructor(
-        address _owner,
         address _token,
         string memory _name,
         string memory _symbol
@@ -107,21 +101,11 @@ contract VotingEscrow is ReentrancyGuard {
 
         name = _name;
         symbol = _symbol;
-        owner = _owner;
     }
 
     /// ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
     ///       Owner Functions       ///
     /// ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
-
-    /// @notice Transfers ownership to a new owner
-    /// @param _addr The new owner
-    /// @dev Owner should always be a timelock contract
-    function transferOwnership(address _addr) external {
-        require(msg.sender == owner, "Only owner");
-        owner = _addr;
-        emit TransferOwnership(_addr);
-    }
 
     /// ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
     ///       LOCK MANAGEMENT       ///
@@ -580,13 +564,8 @@ contract VotingEscrow is ReentrancyGuard {
         // currentLock has only 0 end
         // Both can have >= 0 amount
         _checkpoint(msg.sender, locked_, newLocked);
-        // apply penalty
-        uint256 penaltyRate = 0;
-        uint256 penaltyAmount = (value * penaltyRate) / 10**18; // quitlock_penalty is in 18 decimals precision
-        penaltyAccumulated += penaltyAmount;
-        uint256 remainingAmount = value - penaltyAmount;
         // Send back remaining tokens
-        require(token.transfer(msg.sender, remainingAmount), "Transfer failed");
+        require(token.transfer(msg.sender, value), "Transfer failed");
         emit Withdraw(msg.sender, value, LockAction.QUIT, block.timestamp);
     }
 
