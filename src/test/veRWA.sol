@@ -109,9 +109,6 @@ contract VotingEscrow is ReentrancyGuard {
             blk: block.number
         });
 
-        decimals = IERC20(_token).decimals();
-        require(decimals <= 18, "Exceeds max decimals");
-
         name = _name;
         symbol = _symbol;
         owner = _owner;
@@ -366,7 +363,6 @@ contract VotingEscrow is ReentrancyGuard {
     // See IVotingEscrow for documentation
     function createLock(uint256 _value, uint256 _unlockTime)
         external
-        override
         nonReentrant
     {
         uint256 unlock_time = _floorToWeek(_unlockTime); // Locktime is rounded down to weeks
@@ -402,7 +398,6 @@ contract VotingEscrow is ReentrancyGuard {
     // @dev A lock is active until both lock.amount==0 and lock.end<=block.timestamp
     function increaseAmount(uint256 _value)
         external
-        override
         nonReentrant
     {
         LockedBalance memory locked_ = locked[msg.sender];
@@ -454,7 +449,6 @@ contract VotingEscrow is ReentrancyGuard {
     // See IVotingEscrow for documentation
     function increaseUnlockTime(uint256 _unlockTime)
         external
-        override
         nonReentrant
     {
         LockedBalance memory locked_ = locked[msg.sender];
@@ -484,7 +478,7 @@ contract VotingEscrow is ReentrancyGuard {
     }
 
     // See IVotingEscrow for documentation
-    function withdraw() external override nonReentrant {
+    function withdraw() external nonReentrant {
         LockedBalance memory locked_ = locked[msg.sender];
         // Validate inputs
         require(locked_.amount > 0, "No lock");
@@ -515,7 +509,6 @@ contract VotingEscrow is ReentrancyGuard {
     // See IVotingEscrow for documentation
     function delegate(address _addr)
         external
-        override
         nonReentrant
     {
         LockedBalance memory locked_ = locked[msg.sender];
@@ -588,7 +581,7 @@ contract VotingEscrow is ReentrancyGuard {
     /// ~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
 
     // See IVotingEscrow for documentation
-    function quitLock() external override nonReentrant {
+    function quitLock() external nonReentrant {
         LockedBalance memory locked_ = locked[msg.sender];
         // Validate inputs
         require(locked_.amount > 0, "No lock");
@@ -710,7 +703,7 @@ contract VotingEscrow is ReentrancyGuard {
     }
 
     // See IVotingEscrow for documentation
-    function balanceOf(address _owner) public view override returns (uint256) {
+    function balanceOf(address _owner) public view returns (uint256) {
         uint256 epoch = userPointEpoch[_owner];
         if (epoch == 0) {
             return 0;
@@ -729,7 +722,6 @@ contract VotingEscrow is ReentrancyGuard {
     function balanceOfAt(address _owner, uint256 _blockNumber)
         public
         view
-        override
         returns (uint256)
     {
         require(_blockNumber <= block.number, "Only past block number");
@@ -820,7 +812,7 @@ contract VotingEscrow is ReentrancyGuard {
     }
 
     // See IVotingEscrow for documentation
-    function totalSupply() public view override returns (uint256) {
+    function totalSupply() public view returns (uint256) {
         uint256 epoch_ = globalEpoch;
         Point memory lastPoint = pointHistory[epoch_];
         return _supplyAt(lastPoint, block.timestamp);
@@ -830,7 +822,6 @@ contract VotingEscrow is ReentrancyGuard {
     function totalSupplyAt(uint256 _blockNumber)
         public
         view
-        override
         returns (uint256)
     {
         require(_blockNumber <= block.number, "Only past block number");
