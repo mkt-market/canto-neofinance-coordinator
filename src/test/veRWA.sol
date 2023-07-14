@@ -35,7 +35,6 @@ contract VotingEscrow is ReentrancyGuard {
         uint256 ts
     );
     event TransferOwnership(address owner);
-    event UpdateBlocklist(address blocklist);
     event UpdatePenaltyRecipient(address recipient);
     event CollectPenalty(uint256 amount, address recipient);
     event Unlock();
@@ -49,7 +48,6 @@ contract VotingEscrow is ReentrancyGuard {
     address public penaltyRecipient; // receives collected penalty payments
     uint256 public maxPenalty = 10**18; // penalty for quitters with MAXTIME remaining lock
     uint256 public penaltyAccumulated; // accumulated and unwithdrawn penalty payments
-    address public blocklist;
 
     // Lock state
     uint256 public globalEpoch;
@@ -120,14 +118,6 @@ contract VotingEscrow is ReentrancyGuard {
         penaltyRecipient = _penaltyRecipient;
     }
 
-    modifier checkBlocklist() {
-        require(
-            !IBlocklist(blocklist).isBlocked(msg.sender),
-            "Blocked contract"
-        );
-        _;
-    }
-
     /// ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
     ///       Owner Functions       ///
     /// ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
@@ -139,13 +129,6 @@ contract VotingEscrow is ReentrancyGuard {
         require(msg.sender == owner, "Only owner");
         owner = _addr;
         emit TransferOwnership(_addr);
-    }
-
-    /// @notice Updates the blocklist contract
-    function updateBlocklist(address _addr) external {
-        require(msg.sender == owner, "Only owner");
-        blocklist = _addr;
-        emit UpdateBlocklist(_addr);
     }
 
     /// @notice Updates the recipient of the accumulated penalty paid by quitters
@@ -161,24 +144,6 @@ contract VotingEscrow is ReentrancyGuard {
         require(msg.sender == owner, "Only owner");
         maxPenalty = 0;
         emit Unlock();
-    }
-
-    /// @notice Forces an undelegation of virtual balance for a blocked locker
-    /// @dev Can only be called by the Blocklist contract (as part of a block)
-    /// @dev This is an irreversible action
-    function forceUndelegate(address _addr) external override {
-        require(msg.sender == blocklist, "Only Blocklist");
-        LockedBalance memory locked_ = locked[_addr];
-        address delegatee = locked_.delegatee;
-        int128 value = locked_.amount;
-
-        if (delegatee != _addr && value > 0) {
-            LockedBalance memory fromLocked;
-            locked_.delegatee = _addr;
-            fromLocked = locked[delegatee];
-            _delegate(delegatee, fromLocked, value, LockAction.UNDELEGATE);
-            _delegate(_addr, locked_, value, LockAction.DELEGATE);
-        }
     }
 
     /// ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
@@ -403,7 +368,6 @@ contract VotingEscrow is ReentrancyGuard {
         external
         override
         nonReentrant
-        checkBlocklist
     {
         uint256 unlock_time = _floorToWeek(_unlockTime); // Locktime is rounded down to weeks
         LockedBalance memory locked_ = locked[msg.sender];
@@ -440,7 +404,6 @@ contract VotingEscrow is ReentrancyGuard {
         external
         override
         nonReentrant
-        checkBlocklist
     {
         LockedBalance memory locked_ = locked[msg.sender];
         // Validate inputs
@@ -493,7 +456,6 @@ contract VotingEscrow is ReentrancyGuard {
         external
         override
         nonReentrant
-        checkBlocklist
     {
         LockedBalance memory locked_ = locked[msg.sender];
         uint256 unlock_time = _floorToWeek(_unlockTime); // Locktime is rounded down to weeks
@@ -555,11 +517,9 @@ contract VotingEscrow is ReentrancyGuard {
         external
         override
         nonReentrant
-        checkBlocklist
     {
         LockedBalance memory locked_ = locked[msg.sender];
         // Validate inputs
-        require(!IBlocklist(blocklist).isBlocked(_addr), "Blocked contract");
         require(locked_.amount > 0, "No lock");
         require(locked_.delegatee != _addr, "Already delegated");
         // Update locks
