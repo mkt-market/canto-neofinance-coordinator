@@ -149,4 +149,16 @@ contract GaugeController {
     function gauge_relative_weight(address _gauge, uint256 _time) external view returns (uint256) {
         return _gauge_relative_weight(_gauge, _time);
     }
+
+    /// @notice Get gauge weight normalized to 1e18 and also fill all the unfilled
+    ///     values for type and gauge records
+    /// @dev Any address can call, however nothing is recorded if the values are filled already
+    /// @param _gauge Gauge address
+    /// @param _time Relative weight at the specified timestamp in the past or present
+    /// @return Value of relative weight normalized to 1e18
+    function gauge_relative_weight_write(address _gauge, uint256 _time) external returns (uint256) {
+        _get_weight(_gauge);
+        _get_total();
+        return _gauge_relative_weight(_gauge, _time);
+    }
 }
