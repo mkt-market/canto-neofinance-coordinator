@@ -9,11 +9,13 @@ import {VotingEscrow} from "./VotingEscrow.sol";
 /// @notice Allows users to vote on distribution of CANTO that the contract receives from governance. Modifications from Curve:
 ///         - Gauge types removed
 contract GaugeController {
+    // Constants
+    uint256 public constant WEEK = 7 days;
+    
     // Events
 
     // State
     VotingEscrow public votingEscrow;
-    uint256 public constant WEEK = 7 days;
     address public governance;
     uint128 n_gauges;
     address[1000000000] public gauges;
@@ -43,5 +45,6 @@ contract GaugeController {
     /// @param _votingEscrow The voting escrow address
     constructor(address _votingEscrow) {
         votingEscrow = VotingEscrow(_votingEscrow);
+        time_total = block.timestamp / WEEK * WEEK;
     }
 }
