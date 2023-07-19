@@ -32,9 +32,6 @@ contract GaugeController {
 
     mapping(uint256 => Point) points_sum;
     mapping(uint256 => uint256) changes_sum;
-
-    mapping(uint256 => uint256) public points_total;
-    uint256 public time_total;
     uint256 public time_sum;
 
     struct Point {
@@ -58,7 +55,6 @@ contract GaugeController {
     constructor(address _votingEscrow) {
         votingEscrow = VotingEscrow(_votingEscrow);
         uint256 last_epoch = (block.timestamp / WEEK) * WEEK;
-        time_total = last_epoch;
         time_sum = last_epoch;
     }
 
@@ -83,22 +79,6 @@ contract GaugeController {
             if (t > block.timestamp) time_sum = t;
         }
         return pt.bias;
-    }
-
-    /// @notice Fill historic total weights week-over-week for missed checkins and return the total for the future week
-    /// @return pt The total weight
-    function _get_total() private returns (uint256 pt) {
-        // TODO: Can be replaced with points_sum...
-        uint256 t = time_total;
-        if (t > block.timestamp) t -= WEEK; // If we have already checkpointed - still need to change the value
-        pt = points_total[t];
-        for (uint256 i; i < 500; ++i) {
-            if (t > block.timestamp) break;
-            t += WEEK;
-            pt = points_sum[t].bias;
-            points_total[t] = pt;
-            if (t > block.timestamp) time_total = t;
-        }
     }
 
     /// @notice Fill historic gauge weights week-over-week for missed checkins
@@ -141,14 +121,14 @@ contract GaugeController {
 
     /// @notice Checkpoint to fill data common for all gauges
     function checkpoint() external {
-        _get_total();
+        _get_sum();
     }
 
     /// @notice Checkpoint to fill data for both a specific gauge and common for all gauges
     /// @param _gauge The gauge address
     function checkpoint_gauge(address _gauge) external {
         _get_weight(_gauge);
-        _get_total();
+        _get_sum();
     }
 
     /// @notice Get Gauge relative weight (not more than 1.0) normalized to 1e18
@@ -159,7 +139,7 @@ contract GaugeController {
     /// @return Value of relative weight normalized to 1e18
     function _gauge_relative_weight(address _gauge, uint256 _time) private view returns (uint256) {
         uint256 t = (_time / WEEK) * WEEK;
-        uint256 total_weight = points_total[t];
+        uint256 total_weight = points_sum[t].bias;
         if (total_weight > 0) {
             uint256 gauge_weight = points_weight[_gauge][t].bias;
             return (MULTIPLIER * gauge_weight) / total_weight;
@@ -186,7 +166,7 @@ contract GaugeController {
     /// @return Value of relative weight normalized to 1e18
     function gauge_relative_weight_write(address _gauge, uint256 _time) external returns (uint256) {
         _get_weight(_gauge);
-        _get_total();
+        _get_sum();
         return _gauge_relative_weight(_gauge, _time);
     }
 
@@ -195,17 +175,16 @@ contract GaugeController {
     /// @param _weight New weight
     function _change_gauge_weight(address _gauge, uint256 _weight) internal {
         uint256 old_gauge_weight = _get_weight(_gauge);
-        uint256 total_weight = _get_total();
+        uint256 old_sum = _get_sum();
         uint256 next_time = ((block.timestamp + WEEK) / WEEK) * WEEK;
 
         points_weight[_gauge][next_time].bias = _weight;
         time_weight[_gauge] = next_time;
 
         // TODO: Update points_sum here?
-
-        total_weight = total_weight - old_gauge_weight + _weight;
-        points_total[next_time] = total_weight;
-        time_total = next_time;
+        uint256 new_sum = old_sum + _weight - old_gauge_weight;
+        points_sum[next_time].bias = new_sum;
+        time_sum = next_time;
     }
 
     /// @notice Allows governance to overwrite gauge weights
@@ -279,7 +258,7 @@ contract GaugeController {
         changes_weight[_gauge_addr][new_slope.end] += new_slope.slope;
         changes_sum[new_slope.end] += new_slope.slope;
 
-        _get_total(); // TODO Can probably be removed
+        _get_sum();
 
         vote_user_slopes[msg.sender][_gauge_addr] = new_slope;
 
@@ -297,6 +276,6 @@ contract GaugeController {
     /// @notice Get total weight
     /// @return Total weight
     function get_total_weight() external view returns (uint256) {
-        return points_total[time_total];
+        return points_sum[time_sum].bias;
     }
 }
