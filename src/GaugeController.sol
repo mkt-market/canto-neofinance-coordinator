@@ -10,6 +10,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 /// @notice Allows users to vote on distribution of CANTO that the contract receives from governance. Modifications from Curve:
 ///         - Gauge types removed (resulting in the removal of the differentiation between tracking of total / sum)
 ///         - Different whitelisting of gauge addresses because of removed types
+///         - Removal of gauges
 contract GaugeController {
     // Constants
     uint256 public constant WEEK = 7 days;
@@ -17,6 +18,7 @@ contract GaugeController {
 
     // Events
     event NewGauge(address indexed gauge_address);
+    event GaugeRemoved(address indexed gauge_address);
 
     // State
     VotingEscrow public votingEscrow;
@@ -110,11 +112,21 @@ contract GaugeController {
         }
     }
 
-    /// @notice Allows governance to add a new gauge
+    /// @notice Add a new gauge, only callable by governance
     /// @param _gauge The gauge address
     function add_gauge(address _gauge) external onlyGovernance {
         isValidGauge[_gauge] = true;
         emit NewGauge(_gauge);
+    }
+
+    /// @notice Remove a gauge, only callable by governance
+    /// @dev Sets the gauge weight to 0
+    /// @param _gauge The gauge address
+    function remove_gauge(address _gauge) external onlyGovernance {
+        require(isValidGauge[_gauge], "Invalid gauge address");
+        isValidGauge[_gauge] = false;
+        _change_gauge_weight(_gauge, 0);
+        emit GaugeRemoved(_gauge);
     }
 
     /// @notice Checkpoint to fill data common for all gauges
@@ -187,7 +199,7 @@ contract GaugeController {
     /// @notice Allows governance to overwrite gauge weights
     /// @param _gauge Gauge address
     /// @param _weight New weight
-    function change_gauge_weight(address _gauge, uint256 _weight) external onlyGovernance {
+    function change_gauge_weight(address _gauge, uint256 _weight) public onlyGovernance {
         _change_gauge_weight(_gauge, _weight);
     }
 
