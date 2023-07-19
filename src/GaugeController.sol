@@ -103,10 +103,22 @@ contract GaugeController {
 
     /// @notice Allows governance to add a new gauge
     /// @param _gauge The gauge address
-    function add_gauge(address _gauge) public onlyGovernance {
+    function add_gauge(address _gauge) external onlyGovernance {
         uint128 n = n_gauges;
         n_gauges = n + 1;
         gauges[n] = _gauge;
         emit NewGauge(_gauge);
+    }
+
+    /// @notice Checkpoint to fill data common for all gauges
+    function checkpoint() external {
+        _get_total();
+    }
+
+    /// @notice Checkpoint to fill data for both a specific gauge and common for all gauges
+    /// @param _gauge The gauge address
+    function checkpoint_gauge(address _gauge) external {
+        _get_weight(_gauge);
+        _get_total();
     }
 }
