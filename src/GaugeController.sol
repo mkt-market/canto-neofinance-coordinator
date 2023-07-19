@@ -161,4 +161,29 @@ contract GaugeController {
         _get_total();
         return _gauge_relative_weight(_gauge, _time);
     }
+
+    /// @notice Overwrite gauge weight
+    /// @param _gauge Gauge address
+    /// @param _weight New weight
+    function _change_gauge_weight(address _gauge, uint256 _weight) internal {
+        uint256 old_gauge_weight = _get_weight(_gauge);
+        uint256 total_weight = _get_total();
+        uint256 next_time = (block.timestamp + WEEK) / WEEK * WEEK;
+
+        points_weight[_gauge][next_time].bias = _weight;
+        time_weight[_gauge] = next_time;
+
+        // TODO: Update points_sum here?
+
+        total_weight = total_weight - old_gauge_weight + _weight;
+        points_total[next_time] = total_weight;
+        time_total = next_time;
+    }
+
+    /// @notice Allows governance to overwrite gauge weights
+    /// @param _gauge Gauge address
+    /// @param _weight New weight
+    function change_gauge_weight(address _gauge, uint256 _weight) external onlyGovernance {
+        _change_gauge_weight(_gauge, _weight);
+    }
 }
