@@ -13,6 +13,7 @@ contract GaugeController {
     uint256 public constant WEEK = 7 days;
     
     // Events
+    event NewGauge(address indexed gauge_address);
 
     // State
     VotingEscrow public votingEscrow;
@@ -27,7 +28,10 @@ contract GaugeController {
     mapping(address => mapping(uint256 => uint256)) public changes_weight;
     mapping(address => uint256) time_weight;
 
-    mapping(uint256 => uint256) public points;
+    mapping(uint256 => Point) points_sum;
+    mapping(uint256 => uint256) changes_sum;
+
+    mapping(uint256 => uint256) public points_total;
     uint256 public time_total;
 
     struct Point {
@@ -41,10 +45,68 @@ contract GaugeController {
         uint256 end;
     }
 
+    modifier onlyGovernance() {
+        require(msg.sender == governance);
+        _;
+    }
+
     /// @notice Initializes state
     /// @param _votingEscrow The voting escrow address
     constructor(address _votingEscrow) {
         votingEscrow = VotingEscrow(_votingEscrow);
         time_total = block.timestamp / WEEK * WEEK;
+    }
+
+    /// @notice Fill historic total weights week-over-week for missed checkins and return the total for the future week
+    /// @return pt The total weight
+    function _get_total() private returns (uint256 pt) {
+        uint256 t = time_total;
+        if (t > block.timestamp) t -= WEEK; // If we have already checkpointed - still need to change the value
+        pt = points_total[t];
+        for (uint256 i; i < 500; ++i) {
+            if (t > block.timestamp) break;
+            t += WEEK;
+            pt = points_sum[t].bias;
+            points_total[t] = pt;
+            if (t > block.timestamp) time_total = t;
+        }
+    }
+
+    ///     @notice Fill historic gauge weights week-over-week for missed checkins
+    ///     and return the total for the future week
+    ///     @param _gauge_addr Address of the gauge
+    ///     @return Gauge weight
+    function _get_weight(address _gauge_addr) private returns (uint256) {
+        uint256 t = time_weight[_gauge_addr];
+        if (t > 0) {
+            Point memory pt = points_weight[_gauge_addr][t];
+            for (uint256 i; i < 500; ++i) {
+                if (t > block.timestamp) break;
+                t += WEEK;
+                uint256 d_bias = pt.slope * WEEK;
+                if (pt.bias > d_bias) {
+                    pt.bias -= d_bias;
+                    uint256 d_slope = changes_weight[_gauge_addr][t];
+                    pt.slope -= d_slope;
+                } else {
+                    pt.bias = 0;
+                    pt.slope = 0;
+                }
+                points_weight[_gauge_addr][t] = pt;
+                if (t > block.timestamp) time_weight[_gauge_addr] = t;
+            }
+            return pt.bias;
+        } else {
+            return 0;
+        }
+    }
+
+    /// @notice Allows governance to add a new gauge
+    /// @param _gauge The gauge address
+    function add_gauge(address _gauge) public onlyGovernance {
+        uint128 n = n_gauges;
+        n_gauges = n + 1;
+        gauges[n] = _gauge;
+        emit NewGauge(_gauge);
     }
 }
