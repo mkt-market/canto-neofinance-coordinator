@@ -305,7 +305,7 @@ contract VotingEscrow is ReentrancyGuard {
             newLocked = _copyLock(locked_);
             newLocked.amount += int128(int256(_value));
             newLocked.delegated += int128(int256(_value));
-            newLocked.end = unlockTime + LOCKTIME;
+            newLocked.end = block.timestamp + LOCKTIME;
             locked[msg.sender] = newLocked;
         } else {
             // Delegated lock, update sender's lock first
@@ -317,7 +317,7 @@ contract VotingEscrow is ReentrancyGuard {
             require(locked_.end > block.timestamp, "Delegatee lock expired");
             newLocked = _copyLock(locked_);
             newLocked.delegated += int128(int256(_value));
-            newLocked.end = unlockTime + LOCKTIME;
+            newLocked.end = block.timestamp + LOCKTIME;
             locked[delegatee] = newLocked;
             emit Deposit(delegatee, _value, newLocked.end, LockAction.DELEGATE, block.timestamp);
         }
