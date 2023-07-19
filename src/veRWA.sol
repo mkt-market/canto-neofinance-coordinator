@@ -13,10 +13,10 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 ///         mkt.market (AGPL) - This version
 /// @notice Plain Curve VotingEscrow mechanics with following adjustments:
 ///            1) Delegation of lock and voting power
-///            2) Quit an existing lock and pay a penalty
-///            3) Whitelisting of SmartWallets outside the VotingEscrow
-///            4) Reduced pointHistory array size and, as a result, lifetime of the contract
-///            5) Removed public deposit_for and Aragon compatibility (no use case)
+///            2) Reduced pointHistory array size and, as a result, lifetime of the contract
+///            3) Removed public deposit_for and Aragon compatibility (no use case)
+///            4) Use native token (CANTO) instead of an ERC20 token as the underlying asset
+///            5) Lock time is fixed to 5 years, every action resets it
 contract VotingEscrow is ReentrancyGuard {
     // Shared Events
     event Deposit(address indexed provider, uint256 value, uint256 locktime, LockAction indexed action, uint256 ts);
