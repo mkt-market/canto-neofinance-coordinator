@@ -8,7 +8,8 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 /// @author Curve Finance (MIT) - original concept and implementation in Vyper
 ///         mkt.market - Porting to Solidity with some modifications (this version)
 /// @notice Allows users to vote on distribution of CANTO that the contract receives from governance. Modifications from Curve:
-///         - Gauge types removed
+///         - Gauge types removed (resulting in the removal of the differentiation between tracking of total / sum)
+///         - Different whitelisting of gauge addresses because of removed types
 contract GaugeController {
     // Constants
     uint256 public constant WEEK = 7 days;
@@ -20,8 +21,7 @@ contract GaugeController {
     // State
     VotingEscrow public votingEscrow;
     address public governance;
-    uint128 n_gauges;
-    address[1000000000] public gauges;
+    mapping(address => bool) public isValidGauge;
     mapping(address => mapping(address => VotedSlope)) public vote_user_slopes;
     mapping(address => uint256) vote_user_power;
     mapping(address => mapping(address => uint256)) public last_user_vote;
@@ -113,9 +113,7 @@ contract GaugeController {
     /// @notice Allows governance to add a new gauge
     /// @param _gauge The gauge address
     function add_gauge(address _gauge) external onlyGovernance {
-        uint128 n = n_gauges;
-        n_gauges = n + 1;
-        gauges[n] = _gauge;
+        isValidGauge[_gauge] = true;
         emit NewGauge(_gauge);
     }
 
@@ -181,7 +179,6 @@ contract GaugeController {
         points_weight[_gauge][next_time].bias = _weight;
         time_weight[_gauge] = next_time;
 
-        // TODO: Update points_sum here?
         uint256 new_sum = old_sum + _weight - old_gauge_weight;
         points_sum[next_time].bias = new_sum;
         time_sum = next_time;
@@ -198,8 +195,8 @@ contract GaugeController {
     /// @param _gauge_addr Gauge which `msg.sender` votes for
     /// @param _user_weight Weight for a gauge in bps (units of 0.01%). Minimal is 0.01%. Ignored if 0
     function vote_for_gauge_weights(address _gauge_addr, uint256 _user_weight) external {
-        // TODO: Validate gauge_addr
         require(_user_weight >= 0 && _user_weight <= 10_000, "Invalid user weight");
+        require(isValidGauge[_gauge_addr], "Invalid gauge address");
         VotingEscrow ve = votingEscrow;
         (
             ,
@@ -235,7 +232,7 @@ contract GaugeController {
         // Schedule recording of initial slope for next_time
         uint256 old_weight_bias = _get_weight(_gauge_addr);
         uint256 old_weight_slope = points_weight[_gauge_addr][next_time].slope;
-        uint256 old_sum_bias = _get_sum(); // TODO
+        uint256 old_sum_bias = _get_sum();
         uint256 old_sum_slope = points_sum[next_time].slope;
 
         points_weight[_gauge_addr][next_time].bias = Math.max(old_weight_bias + new_bias, old_bias) - old_bias;
