@@ -13,7 +13,7 @@ contract GaugeController {
     // Constants
     uint256 public constant WEEK = 7 days;
     uint256 public constant MULTIPLIER = 10**18;
-    
+
     // Events
     event NewGauge(address indexed gauge_address);
 
@@ -57,7 +57,7 @@ contract GaugeController {
     /// @param _votingEscrow The voting escrow address
     constructor(address _votingEscrow) {
         votingEscrow = VotingEscrow(_votingEscrow);
-        uint256 last_epoch = block.timestamp / WEEK * WEEK;
+        uint256 last_epoch = (block.timestamp / WEEK) * WEEK;
         time_total = last_epoch;
         time_sum = last_epoch;
     }
@@ -87,7 +87,8 @@ contract GaugeController {
 
     /// @notice Fill historic total weights week-over-week for missed checkins and return the total for the future week
     /// @return pt The total weight
-    function _get_total() private returns (uint256 pt) { // TODO: Can be replaced with points_sum...
+    function _get_total() private returns (uint256 pt) {
+        // TODO: Can be replaced with points_sum...
         uint256 t = time_total;
         if (t > block.timestamp) t -= WEEK; // If we have already checkpointed - still need to change the value
         pt = points_total[t];
@@ -157,11 +158,11 @@ contract GaugeController {
     /// @param _time Relative weight at the specified timestamp in the past or present
     /// @return Value of relative weight normalized to 1e18
     function _gauge_relative_weight(address _gauge, uint256 _time) private view returns (uint256) {
-        uint256 t = _time / WEEK * WEEK;
+        uint256 t = (_time / WEEK) * WEEK;
         uint256 total_weight = points_total[t];
         if (total_weight > 0) {
             uint256 gauge_weight = points_weight[_gauge][t].bias;
-            return MULTIPLIER * gauge_weight / total_weight;
+            return (MULTIPLIER * gauge_weight) / total_weight;
         } else {
             return 0;
         }
@@ -195,7 +196,7 @@ contract GaugeController {
     function _change_gauge_weight(address _gauge, uint256 _weight) internal {
         uint256 old_gauge_weight = _get_weight(_gauge);
         uint256 total_weight = _get_total();
-        uint256 next_time = (block.timestamp + WEEK) / WEEK * WEEK;
+        uint256 next_time = ((block.timestamp + WEEK) / WEEK) * WEEK;
 
         points_weight[_gauge][next_time].bias = _weight;
         time_weight[_gauge] = next_time;
@@ -221,18 +222,23 @@ contract GaugeController {
         // TODO: Validate gauge_addr
         require(_user_weight >= 0 && _user_weight <= 10_000, "Invalid user weight");
         VotingEscrow ve = votingEscrow;
-        (/*int128 bias*/, int128 slope_, /*uint256 ts*/) = ve.getLastUserPoint(msg.sender);
+        (
+            ,
+            /*int128 bias*/
+            int128 slope_, /*uint256 ts*/
+
+        ) = ve.getLastUserPoint(msg.sender);
         require(slope_ >= 0, "Invalid slope");
         uint256 slope = uint256(uint128(slope_));
         uint256 lock_end = ve.lockEnd(msg.sender);
-        uint256 next_time = (block.timestamp + WEEK) / WEEK * WEEK;
+        uint256 next_time = ((block.timestamp + WEEK) / WEEK) * WEEK;
         require(lock_end > next_time, "Lock expires too soon");
         VotedSlope memory old_slope = vote_user_slopes[msg.sender][_gauge_addr];
         uint256 old_dt = 0;
         if (old_slope.end > next_time) old_dt = old_slope.end - next_time;
         uint256 old_bias = old_slope.slope * old_dt;
         VotedSlope memory new_slope = VotedSlope({
-            slope: slope * _user_weight / 10_000,
+            slope: (slope * _user_weight) / 10_000,
             end: lock_end,
             power: _user_weight
         });
@@ -244,7 +250,7 @@ contract GaugeController {
         power_used = power_used + new_slope.power - old_slope.power;
         require(power_used >= 0 && power_used <= 10_000, "Used too much power");
         vote_user_power[msg.sender] = power_used;
-        
+
         // Remove old and schedule new slope changes
         // Remove slope changes for old slopes
         // Schedule recording of initial slope for next_time
@@ -256,7 +262,9 @@ contract GaugeController {
         points_weight[_gauge_addr][next_time].bias = Math.max(old_weight_bias + new_bias, old_bias) - old_bias;
         points_sum[next_time].bias = Math.max(old_sum_bias + new_bias, old_sum_bias) - old_bias;
         if (old_slope.end > next_time) {
-            points_weight[_gauge_addr][next_time].slope = Math.max(old_weight_slope + new_slope.slope, old_slope.slope) - old_slope.slope;
+            points_weight[_gauge_addr][next_time].slope =
+                Math.max(old_weight_slope + new_slope.slope, old_slope.slope) -
+                old_slope.slope;
             points_sum[next_time].slope = Math.max(old_sum_slope + new_slope.slope, old_slope.slope) - old_slope.slope;
         } else {
             points_weight[_gauge_addr][next_time].slope += new_slope.slope;
