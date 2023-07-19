@@ -11,6 +11,7 @@ import {VotingEscrow} from "./VotingEscrow.sol";
 contract GaugeController {
     // Constants
     uint256 public constant WEEK = 7 days;
+    uint256 public constant MULTIPLIER = 10**18;
     
     // Events
     event NewGauge(address indexed gauge_address);
@@ -72,10 +73,10 @@ contract GaugeController {
         }
     }
 
-    ///     @notice Fill historic gauge weights week-over-week for missed checkins
-    ///     and return the total for the future week
-    ///     @param _gauge_addr Address of the gauge
-    ///     @return Gauge weight
+    /// @notice Fill historic gauge weights week-over-week for missed checkins
+    /// and return the total for the future week
+    /// @param _gauge_addr Address of the gauge
+    /// @return Gauge weight
     function _get_weight(address _gauge_addr) private returns (uint256) {
         uint256 t = time_weight[_gauge_addr];
         if (t > 0) {
@@ -120,5 +121,32 @@ contract GaugeController {
     function checkpoint_gauge(address _gauge) external {
         _get_weight(_gauge);
         _get_total();
+    }
+
+    /// @notice Get Gauge relative weight (not more than 1.0) normalized to 1e18
+    ///     (e.g. 1.0 == 1e18). Inflation which will be received by it is
+    ///     inflation_rate * relative_weight / 1e18
+    /// @param _gauge Gauge address
+    /// @param _time Relative weight at the specified timestamp in the past or present
+    /// @return Value of relative weight normalized to 1e18
+    function _gauge_relative_weight(address _gauge, uint256 _time) private view returns (uint256) {
+        uint256 t = _time / WEEK * WEEK;
+        uint256 total_weight = points_total[t];
+        if (total_weight > 0) {
+            uint256 gauge_weight = points_weight[_gauge][t].bias;
+            return MULTIPLIER * gauge_weight / total_weight;
+        } else {
+            return 0;
+        }
+    }
+
+    /// @notice Get Gauge relative weight (not more than 1.0) normalized to 1e18
+    ///     (e.g. 1.0 == 1e18). Inflation which will be received by it is
+    ///     inflation_rate * relative_weight / 1e18
+    /// @param _gauge Gauge address
+    /// @param _time Relative weight at the specified timestamp in the past or present
+    /// @return Value of relative weight normalized to 1e18
+    function gauge_relative_weight(address _gauge, uint256 _time) external view returns (uint256) {
+        return _gauge_relative_weight(_gauge, _time);
     }
 }
