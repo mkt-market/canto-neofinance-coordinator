@@ -18,38 +18,62 @@ contract LendingLeder {
     /// @dev Lending Market => Epoch
     mapping(address => uint256) lendingMarketTotalBalanceEpoch; // Epoch when the last update happened
 
-    /// @notice Function that is called by the lending market on cNOTE deposits / withdrawals
-    /// @param lender The address of the lender
-    /// @param delta The amount of cNote deposited (positive) or withdrawn (negative)
-    function syncLedger(address lender, int256 delta) external {
-        address lendingMarket = msg.sender; // TODO: Validate
+    /// @notice Fill in gaps in the user market balances history (if any exist)
+    /// @param _market Address of the market
+    /// @param _lender Address of the lender
+    /// @param _forwardTimestampLimit Until which epoch (provided as timestamp) should the update be applied. If it is higher than the current epoch timestamp, this will be used.
+    function _checkpoint_lender(
+        address _market,
+        address _lender,
+        uint256 _forwardTimestampLimit
+    ) private {
         uint256 currEpoch = (block.timestamp / WEEK) * WEEK;
-        uint256 lastUserUpdateEpoch = lendingMarketBalancesEpoch[lendingMarket][lender];
+        uint256 lastUserUpdateEpoch = lendingMarketBalancesEpoch[_market][_lender];
         if (lastUserUpdateEpoch > 0 && lastUserUpdateEpoch < currEpoch) {
             // Fill in potential gaps in the user balances history
-            uint256 lastUserBalance = lendingMarketBalances[lendingMarket][lender][lastUserUpdateEpoch];
-            for (uint256 i = lastUserUpdateEpoch; i <= currEpoch; i += WEEK) {
-                lendingMarketBalances[lendingMarket][lender][i] = lastUserBalance;
+            uint256 lastUserBalance = lendingMarketBalances[_market][_lender][lastUserUpdateEpoch];
+            uint256 updateUntilEpoch = Math.min(currEpoch, _forwardTimestampLimit);
+            for (uint256 i = lastUserUpdateEpoch; i <= updateUntilEpoch; i += WEEK) {
+                lendingMarketBalances[_market][_lender][i] = lastUserBalance;
             }
+            lendingMarketBalancesEpoch[_market][_lender] = updateUntilEpoch;
         }
-        // TODO Maybe sanity check that no underflow happens, although this should be enforced by the lending market
-        lendingMarketBalances[lendingMarket][lender][currEpoch] = uint256(
-            int256(lendingMarketBalances[lendingMarket][lender][currEpoch]) + delta
-        );
-        lendingMarketBalancesEpoch[lendingMarket][lender] = currEpoch;
+    }
 
-        uint256 lastMarketUpdateEpoch = lendingMarketTotalBalanceEpoch[lendingMarket];
+    /// @notice Fill in gaps in the market total balances history (if any exist)
+    /// @param _market Address of the market
+    /// @param _forwardTimestampLimit Until which epoch (provided as timestamp) should the update be applied. If it is higher than the current epoch timestamp, this will be used.
+    function _checkpoint_market(address _market, uint256 _forwardTimestampLimit) private {
+        uint256 currEpoch = (block.timestamp / WEEK) * WEEK;
+        uint256 lastMarketUpdateEpoch = lendingMarketTotalBalanceEpoch[_market];
         if (lastMarketUpdateEpoch > 0 && lastMarketUpdateEpoch < currEpoch) {
             // Fill in potential gaps in the market total balances history
-            uint256 lastMarketBalance = lendingMarketTotalBalance[lendingMarket][lastMarketUpdateEpoch];
-            for (uint256 i = lastMarketUpdateEpoch; i <= currEpoch; i += WEEK) {
-                lendingMarketTotalBalance[lendingMarket][i] = lastMarketBalance;
+            uint256 lastMarketBalance = lendingMarketTotalBalance[_market][lastMarketUpdateEpoch];
+            uint256 updateUntilEpoch = Math.min(currEpoch, _forwardTimestampLimit);
+            for (uint256 i = lastMarketUpdateEpoch; i <= updateUntilEpoch; i += WEEK) {
+                lendingMarketTotalBalance[_market][i] = lastMarketBalance;
             }
+            lendingMarketTotalBalanceEpoch[_market] = updateUntilEpoch;
         }
+    }
+
+    /// @notice Function that is called by the lending market on cNOTE deposits / withdrawals
+    /// @param _lender The address of the lender
+    /// @param _delta The amount of cNote deposited (positive) or withdrawn (negative)
+    function syncLedger(address _lender, int256 _delta) external {
+        address lendingMarket = msg.sender; // TODO: Validate
+
+        _checkpoint_lender(lendingMarket, _lender, type(uint256).max);
+        uint256 currEpoch = (block.timestamp / WEEK) * WEEK;
+        // TODO Maybe sanity check that no underflow happens, although this should be enforced by the lending market
+        lendingMarketBalances[lendingMarket][_lender][currEpoch] = uint256(
+            int256(lendingMarketBalances[lendingMarket][_lender][currEpoch]) + _delta
+        );
+
+        _checkpoint_market(lendingMarket, type(uint256).max);
         // TODO Maybe sanity check that no underflow happens, although this should be enforced by the lending market
         lendingMarketTotalBalance[lendingMarket][currEpoch] = uint256(
-            int256(lendingMarketTotalBalance[lendingMarket][currEpoch]) + delta
+            int256(lendingMarketTotalBalance[lendingMarket][currEpoch]) + _delta
         );
-        lendingMarketTotalBalanceEpoch[lendingMarket] = currEpoch;
     }
 }
