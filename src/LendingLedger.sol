@@ -123,16 +123,14 @@ contract LendingLeder {
 
         _checkpoint_lender(lendingMarket, _lender, type(uint256).max);
         uint256 currEpoch = (block.timestamp / WEEK) * WEEK;
-        // TODO Maybe sanity check that no underflow happens, although this should be enforced by the lending market
-        lendingMarketBalances[lendingMarket][_lender][currEpoch] = uint256(
-            int256(lendingMarketBalances[lendingMarket][_lender][currEpoch]) + _delta
-        );
+        int256 updatedLenderBalance = int256(lendingMarketBalances[lendingMarket][_lender][currEpoch]) + _delta;
+        require(updatedLenderBalance >= 0, "Lender balance underflow"); // Sanity check performed here, but the market should ensure that this never happens
+        lendingMarketBalances[lendingMarket][_lender][currEpoch] = uint256(updatedLenderBalance);
 
         _checkpoint_market(lendingMarket, type(uint256).max);
-        // TODO Maybe sanity check that no underflow happens, although this should be enforced by the lending market
-        lendingMarketTotalBalance[lendingMarket][currEpoch] = uint256(
-            int256(lendingMarketTotalBalance[lendingMarket][currEpoch]) + _delta
-        );
+        int256 updatedMarketBalance = int256(lendingMarketTotalBalance[lendingMarket][currEpoch]) + _delta;
+        require(updatedMarketBalance >= 0, "Market balance underflow"); // Sanity check performed here, but the market should ensure that this never happens
+        lendingMarketTotalBalance[lendingMarket][currEpoch] = uint256(updatedMarketBalance);
     }
 
     /// @notice Claim the CANTO for a given market. Can only be performed for prior (i.e. finished) epochs, not the current one
