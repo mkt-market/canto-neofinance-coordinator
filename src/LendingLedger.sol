@@ -21,6 +21,12 @@ contract LendingLeder {
     /// @dev Lending Market => Lender => Epoch
     mapping(address => mapping(address => uint256)) userClaimedEpoch; // Until which epoch a user has claimed for a particular market (exclusive this value)
 
+    struct RewardInformation {
+        bool set;
+        uint248 amount;
+    }
+    mapping(uint256 => RewardInformation) rewardInformation;
+
     /// @notice Check that a provided timestamp is a valid epoch (divisible by WEEK) or infinity
     /// @param _timestamp Timestamp to check
     modifier is_valid_epoch(uint256 _timestamp) {
@@ -142,6 +148,24 @@ contract LendingLeder {
                 // TODO: % user share, pay out CANTO
             }
             userClaimedEpoch[_market][lender] = claimEnd + WEEK;
+        }
+    }
+
+    /// @notice Used by governance to set the overall CANTO rewards per epoch
+    /// @param _fromEpoch From which epoch (provided as timestamp) to set the rewards from
+    /// @param _toEpoch Until which epoch (provided as timestamp) to set the rewards to
+    /// @param _amountPerEpoch The amount per epoch
+    function setRewards(
+        uint256 _fromEpoch,
+        uint256 _toEpoch,
+        uint248 _amountPerEpoch
+    ) external is_valid_epoch(_fromEpoch) is_valid_epoch(_toEpoch) {
+        // TODO: Only governance
+        for (uint256 i = _fromEpoch; i <= _toEpoch; i += WEEK) {
+            RewardInformation storage ri = rewardInformation[i];
+            require(!ri.set, "Rewards already set");
+            ri.set = true;
+            ri.amount = _amountPerEpoch;
         }
     }
 }
