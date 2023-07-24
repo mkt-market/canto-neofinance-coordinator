@@ -23,8 +23,12 @@ contract VotingEscrow is ReentrancyGuard {
     event Withdraw(address indexed provider, uint256 value, LockAction indexed action, uint256 ts);
     event Unlock();
 
+    // Voting token
+    string public name;
+    string public symbol;
+    uint256 public decimals = 18;
+
     // Shared global state
-    IERC20 public token; //TODO: Remove, causes stack too deep?
     uint256 public constant WEEK = 7 days;
     uint256 public constant LOCKTIME = 1825 days;
     uint256 public constant MULTIPLIER = 10**18;
@@ -37,10 +41,6 @@ contract VotingEscrow is ReentrancyGuard {
     mapping(uint256 => int128) public slopeChanges;
     mapping(address => LockedBalance) public locked;
 
-    // Voting token
-    string public name;
-    string public symbol;
-    uint256 public decimals = 18;
 
     // Structs
     struct Point {
