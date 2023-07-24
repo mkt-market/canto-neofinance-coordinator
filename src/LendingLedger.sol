@@ -10,7 +10,9 @@ contract LendingLeder {
     uint256 public constant WEEK = 7 days;
 
     // State
+    address public governance;
     GaugeController public gaugeController;
+    mapping(address => bool) public lendingMarketWhitelist;
     /// @dev Lending Market => Lender => Epoch => Balance
     mapping(address => mapping(address => mapping(uint256 => uint256))) lendingMarketBalances; // cNote balances of users within the lending markets, indexed by epoch
     /// @dev Lending Market => Lender => Epoch
@@ -36,8 +38,14 @@ contract LendingLeder {
         _;
     }
 
-    constructor(address _gaugeController) {
+    modifier onlyGovernance() {
+        require(msg.sender == governance);
+        _;
+    }
+
+    constructor(address _gaugeController, address _governance) {
         gaugeController = GaugeController(_gaugeController);
+        governance = _governance; // TODO: Maybe change to Oracle
     }
 
     /// @notice Fill in gaps in the user market balances history (if any exist)
@@ -110,7 +118,8 @@ contract LendingLeder {
     /// @param _lender The address of the lender
     /// @param _delta The amount of cNote deposited (positive) or withdrawn (negative)
     function sync_ledger(address _lender, int256 _delta) external {
-        address lendingMarket = msg.sender; // TODO: Validate
+        address lendingMarket = msg.sender;
+        require(lendingMarketWhitelist[lendingMarket], "Market not whitelisted");
 
         _checkpoint_lender(lendingMarket, _lender, type(uint256).max);
         uint256 currEpoch = (block.timestamp / WEEK) * WEEK;
@@ -173,14 +182,21 @@ contract LendingLeder {
         uint256 _fromEpoch,
         uint256 _toEpoch,
         uint248 _amountPerEpoch
-    ) external is_valid_epoch(_fromEpoch) is_valid_epoch(_toEpoch) {
-        // TODO: Only governance
+    ) external is_valid_epoch(_fromEpoch) is_valid_epoch(_toEpoch) onlyGovernance {
         for (uint256 i = _fromEpoch; i <= _toEpoch; i += WEEK) {
             RewardInformation storage ri = rewardInformation[i];
             require(!ri.set, "Rewards already set");
             ri.set = true;
             ri.amount = _amountPerEpoch;
         }
+    }
+
+    /// @notice Used by governance to whitelist a lending market
+    /// @param _market Address of the market to whitelist
+    /// @param _isWhiteListed Whether the market is whitelisted or not
+    function whiteListLendingMarket(address _market, bool _isWhiteListed) external onlyGovernance {
+        require(lendingMarketWhitelist[_market] != _isWhiteListed, "No change");
+        lendingMarketWhitelist[_market] = _isWhiteListed;
     }
 
     receive() external payable {}

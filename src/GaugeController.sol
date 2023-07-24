@@ -54,8 +54,9 @@ contract GaugeController {
 
     /// @notice Initializes state
     /// @param _votingEscrow The voting escrow address
-    constructor(address _votingEscrow) {
+    constructor(address _votingEscrow, address _governance) {
         votingEscrow = VotingEscrow(_votingEscrow);
+        governance = _governance; // TODO: Maybe change to Oracle
         uint256 last_epoch = (block.timestamp / WEEK) * WEEK;
         time_sum = last_epoch;
     }
