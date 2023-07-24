@@ -2,6 +2,7 @@
 pragma solidity ^0.8.16;
 
 import {VotingEscrow} from "./VotingEscrow.sol";
+import {GaugeController} from "./GaugeController.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract LendingLeder {
@@ -9,6 +10,7 @@ contract LendingLeder {
     uint256 public constant WEEK = 7 days;
 
     // State
+    GaugeController public gaugeController;
     /// @dev Lending Market => Lender => Epoch => Balance
     mapping(address => mapping(address => mapping(uint256 => uint256))) lendingMarketBalances; // cNote balances of users within the lending markets, indexed by epoch
     /// @dev Lending Market => Lender => Epoch
@@ -32,6 +34,10 @@ contract LendingLeder {
     modifier is_valid_epoch(uint256 _timestamp) {
         require(_timestamp % WEEK == 0 || _timestamp == type(uint256).max, "Invalid timestamp");
         _;
+    }
+
+    constructor(address _gaugeController) {
+        gaugeController = GaugeController(_gaugeController);
     }
 
     /// @notice Fill in gaps in the user market balances history (if any exist)
@@ -140,14 +146,22 @@ contract LendingLeder {
         uint256 currEpoch = (block.timestamp / WEEK) * WEEK;
         uint256 claimStart = Math.max(userLastClaimed, _claimFromTimestamp);
         uint256 claimEnd = Math.min(currEpoch - WEEK, _claimUpToTimestamp);
+        uint256 cantoToSend;
         if (claimEnd >= claimStart) {
             // This ensures that we only set userClaimedEpoch when a claim actually happened
             for (uint256 i = claimStart; i <= claimEnd; i += WEEK) {
                 uint256 userBalance = lendingMarketBalances[_market][lender][i];
                 uint256 marketBalance = lendingMarketTotalBalance[_market][i];
-                // TODO: % user share, pay out CANTO
+                RewardInformation memory ri = rewardInformation[i];
+                require(ri.set, "Reward not set yet"); // Can only claim for epochs where rewards are set, even if it is set to 0
+                uint256 marketWeight = gaugeController.gauge_relative_weight_write(_market, i); // Normalized to 1e18
+                cantoToSend += (marketWeight * userBalance * ri.amount) / (1e18 * marketBalance); // (marketWeight / 1e18) * (userBalance / marketBalance) * ri.amount;
             }
             userClaimedEpoch[_market][lender] = claimEnd + WEEK;
+        }
+        if (cantoToSend > 0) {
+            (bool success, ) = msg.sender.call{value: cantoToSend}("");
+            require(success, "Failed to send CANTO");
         }
     }
 
@@ -168,4 +182,6 @@ contract LendingLeder {
             ri.amount = _amountPerEpoch;
         }
     }
+
+    receive() external payable {}
 }
