@@ -116,6 +116,7 @@ contract GaugeController {
     /// @notice Add a new gauge, only callable by governance
     /// @param _gauge The gauge address
     function add_gauge(address _gauge) external onlyGovernance {
+        require(!isValidGauge[_gauge], "Gauge already exists");
         isValidGauge[_gauge] = true;
         emit NewGauge(_gauge);
     }
