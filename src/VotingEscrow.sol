@@ -331,11 +331,11 @@ contract VotingEscrow is ReentrancyGuard {
         require(locked_.end <= block.timestamp, "Lock not expired");
         require(locked_.delegatee == msg.sender, "Lock delegated");
         // Update lock
-        uint256 value = uint256(uint128(locked_.amount));
+        uint256 amountToSend = uint256(uint128(locked_.amount));
         LockedBalance memory newLocked = _copyLock(locked_);
         newLocked.amount = 0;
         newLocked.end = 0;
-        newLocked.delegated -= int128(int256(value));
+        newLocked.delegated -= int128(int256(amountToSend));
         newLocked.delegatee = address(0);
         locked[msg.sender] = newLocked;
         newLocked.delegated = 0;
@@ -344,9 +344,9 @@ contract VotingEscrow is ReentrancyGuard {
         // Both can have >= 0 amount
         _checkpoint(msg.sender, locked_, newLocked);
         // Send back deposited tokens
-        bool sent = payable(msg.sender).send(value);
-        require(sent, "Failed to send");
-        emit Withdraw(msg.sender, value, LockAction.WITHDRAW, block.timestamp);
+        (bool success, ) = msg.sender.call{value: amountToSend}("");
+        require(success, "Failed to send CANTO");
+        emit Withdraw(msg.sender, amountToSend, LockAction.WITHDRAW, block.timestamp);
     }
 
     /// ~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
