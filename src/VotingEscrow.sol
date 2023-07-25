@@ -297,31 +297,29 @@ contract VotingEscrow is ReentrancyGuard {
         address delegatee = locked_.delegatee;
         uint256 unlockTime = locked_.end;
         LockAction action = LockAction.INCREASE_AMOUNT;
-        LockedBalance memory newLocked;
+        LockedBalance memory newLocked = _copyLock(locked_);
+        newLocked.amount += int128(int256(_value));
+        newLocked.end = block.timestamp + LOCKTIME;
         if (delegatee == msg.sender) {
             // Undelegated lock
             action = LockAction.INCREASE_AMOUNT_AND_DELEGATION;
-            newLocked = _copyLock(locked_);
-            newLocked.amount += int128(int256(_value));
             newLocked.delegated += int128(int256(_value));
-            newLocked.end = block.timestamp + LOCKTIME;
             locked[msg.sender] = newLocked;
+            _checkpoint(msg.sender, locked_, newLocked);
         } else {
             // Delegated lock, update sender's lock first
-            locked_.amount += int128(int256(_value));
-            locked[msg.sender] = locked_;
+            locked[msg.sender] = newLocked;
+            _checkpoint(msg.sender, locked_, newLocked);
             // Then, update delegatee's lock and voting power (checkpoint)
             locked_ = locked[delegatee];
             require(locked_.amount > 0, "Delegatee has no lock");
             require(locked_.end > block.timestamp, "Delegatee lock expired");
             newLocked = _copyLock(locked_);
             newLocked.delegated += int128(int256(_value));
-            newLocked.end = block.timestamp + LOCKTIME;
             locked[delegatee] = newLocked;
+            _checkpoint(delegatee, locked_, newLocked);
             emit Deposit(delegatee, _value, newLocked.end, LockAction.DELEGATE, block.timestamp);
         }
-        // Checkpoint only for delegatee
-        _checkpoint(delegatee, locked_, newLocked);
         emit Deposit(msg.sender, _value, unlockTime, action, block.timestamp);
     }
 
