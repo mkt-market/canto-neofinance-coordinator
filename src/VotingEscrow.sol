@@ -409,10 +409,6 @@ contract VotingEscrow is ReentrancyGuard {
         }
     }
 
-    /// ~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
-    ///            GETTERS         ///
-    /// ~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
-
     // Creates a copy of a lock
     function _copyLock(LockedBalance memory _locked) internal pure returns (LockedBalance memory) {
         return
@@ -469,6 +465,10 @@ contract VotingEscrow is ReentrancyGuard {
         }
         return min;
     }
+
+    /// ~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
+    ///            GETTERS         ///
+    /// ~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
 
     // See IVotingEscrow for documentation
     function balanceOf(address _owner) public view returns (uint256) {
