@@ -197,4 +197,48 @@ contract VotingEscrowTest is Test {
         assertEq(ve.balanceOfAt(user2, endBlock), 0);
         assertEq(ve.balanceOf(user2), 0);
     }
+
+    function testBalanceOfUnDelegated() public {
+        // balanceOf & balanceOfAt undelegated scenarios #23
+        // It should be tested for different points in time that balanceOf and balanceOfAt
+        // correspond to the expected amount according to the VE model with amounts that are undelegated.
+        // It should be tested that it is 0 after expiration
+
+        testSuccessUnDelegate();
+        (, uint256 end, , ) = ve.locked(user1);
+        for (uint256 i = 0; i < 18; i++) {
+            (, , int128 delegated, ) = ve.locked(user1);
+            uint256 expected = (uint256(uint128(delegated)) * (end - block.timestamp)) / ve.LOCKTIME();
+            uint256 actual = ve.balanceOf(user1);
+            if (actual > expected) {
+                assertLe((actual * 10000) / expected - 10000, 100); // allow 1% tolerance for rounding
+            } else {
+                assertLe((expected * 10000) / actual - 10000, 100); // allow 1% tolerance for rounding
+            }
+            vm.warp(block.timestamp + 100 days);
+            vm.roll(block.number + 100);
+            ve.checkpoint();
+        }
+
+        vm.warp(end + 1);
+        uint256 endBlock = end / 86400;
+        vm.roll(endBlock + 1);
+        ve.checkpoint();
+
+        for (uint256 i = 0; i < 18; i++) {
+            uint256 atBlock = 1 + i * 100;
+            uint256 atTime = 1 + i * 100 days;
+            (, , int128 delegated, ) = ve.locked(user1);
+            uint256 expected = (uint256(uint128(delegated)) * (end - atTime)) / ve.LOCKTIME();
+            uint256 actual = ve.balanceOfAt(user1, atBlock);
+            if (actual > expected) {
+                assertLe((actual * 10000) / expected - 10000, 100); // allow 1% tolerance for rounding
+            } else {
+                assertLe((expected * 10000) / actual - 10000, 100); // allow 1% tolerance for rounding
+            }
+        }
+
+        assertEq(ve.balanceOfAt(user1, endBlock), 0);
+        assertEq(ve.balanceOf(user1), 0);
+    }
 }
