@@ -47,6 +47,19 @@ contract GaugeControllerTest is DSTest {
         vm.stopPrank();
     }
 
+    function testRemoveGauge() public {
+        vm.startPrank(gov);
+
+        gc.add_gauge(user1);
+        assertTrue(gc.isValidGauge(user1));
+
+        gc.remove_gauge(user1);
+        assertTrue(!gc.isValidGauge(user1));
+        assertTrue(gc.get_gauge_weight(user1) == 0);
+
+        vm.stopPrank();
+    }
+
     function testRemoveGaugeForNonExistingGauge() public {
         assertTrue(!gc.isValidGauge(user1));
         vm.prank(gov);
