@@ -24,10 +24,7 @@ contract VotingEscrowTest is Test {
         // Lock with a duration 5 year should be created with delegated set to msg.sender
         vm.prank(user1);
         ve.createLock{value: 100}(100);
-        assertEq(
-            ve.lockEnd(user1),
-            _floorToWeek(block.timestamp + ve.LOCKTIME())
-        );
+        assertEq(ve.lockEnd(user1), _floorToWeek(block.timestamp + ve.LOCKTIME()));
         (, , , address delegatee) = ve.locked(user1);
         assertEq(delegatee, user1);
     }
