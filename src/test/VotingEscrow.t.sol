@@ -140,4 +140,15 @@ contract VotingEscrowTest is Test {
         vm.expectRevert("Lock not expired");
         ve.withdraw();
     }
+
+    function testSuccessWithdraw() public {
+        // withdraw for expired lock
+        testSuccessCreateLock();
+        (, uint256 end, , ) = ve.locked(user1);
+        vm.warp(end + 1);
+        uint256 startBalance = address(user1).balance;
+        vm.prank(user1);
+        ve.withdraw();
+        assertEq(address(user1).balance - startBalance, 100);
+    }
 }
