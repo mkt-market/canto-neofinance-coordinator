@@ -11,11 +11,13 @@ contract VotingEscrowTest is Test {
     address public constant user2 = address(10002);
     address public constant user3 = address(10003);
 
+    uint256 public constant LOCK_AMT = 1 ether;
+
     function setUp() public {
         ve = new VotingEscrow("Voting Escrow", "VE");
-        vm.deal(user1, 1 ether);
-        vm.deal(user2, 1 ether);
-        vm.deal(user3, 1 ether);
+        vm.deal(user1, 100 ether);
+        vm.deal(user2, 100 ether);
+        vm.deal(user3, 100 ether);
     }
 
     uint256 public constant WEEK = 7 days;
@@ -27,8 +29,11 @@ contract VotingEscrowTest is Test {
     function testSuccessCreateLock() public {
         // Lock with a duration 5 year should be created with delegated set to msg.sender
         vm.prank(user1);
-        ve.createLock{value: 100}(100);
-        assertEq(ve.lockEnd(user1), _floorToWeek(block.timestamp + ve.LOCKTIME()));
+        ve.createLock{value: LOCK_AMT}(LOCK_AMT);
+        assertEq(
+            ve.lockEnd(user1),
+            _floorToWeek(block.timestamp + ve.LOCKTIME())
+        );
         (, , , address delegatee) = ve.locked(user1);
         assertEq(delegatee, user1);
     }
@@ -60,7 +65,7 @@ contract VotingEscrowTest is Test {
         // successful delegate
         testSuccessCreateLock();
         vm.prank(user2);
-        ve.createLock{value: 100}(100);
+        ve.createLock{value: LOCK_AMT}(LOCK_AMT);
         vm.prank(user1);
         ve.delegate(user2);
         (, , , address delegatee) = ve.locked(user1);
@@ -73,7 +78,7 @@ contract VotingEscrowTest is Test {
         (, uint256 end, , ) = ve.locked(user1);
         vm.warp(end + 1);
         vm.prank(user2);
-        ve.createLock{value: 100}(100);
+        ve.createLock{value: LOCK_AMT}(LOCK_AMT);
         vm.prank(user2);
         vm.expectRevert("Delegatee lock expired");
         ve.delegate(user1);
@@ -84,7 +89,7 @@ contract VotingEscrowTest is Test {
         testSuccessCreateLock();
         vm.warp(block.timestamp + 10 days);
         vm.prank(user2);
-        ve.createLock{value: 100}(100);
+        ve.createLock{value: LOCK_AMT}(LOCK_AMT);
         vm.prank(user2);
         vm.expectRevert("Only delegate to longer lock");
         ve.delegate(user1);
@@ -103,7 +108,7 @@ contract VotingEscrowTest is Test {
         // successful redelegate
         testSuccessDelegate();
         vm.prank(user3);
-        ve.createLock{value: 100}(100);
+        ve.createLock{value: LOCK_AMT}(LOCK_AMT);
         vm.prank(user1);
         ve.delegate(user3);
         (, , , address delegatee) = ve.locked(user1);
@@ -116,9 +121,9 @@ contract VotingEscrowTest is Test {
         testSuccessUnDelegate();
         vm.warp(block.timestamp + 10 days);
         vm.prank(user1);
-        ve.increaseAmount{value: 100}(100);
+        ve.increaseAmount{value: LOCK_AMT}(LOCK_AMT);
         (, , int128 delegated, ) = ve.locked(user1);
-        assertEq(delegated, 200);
+        assertEq(uint256(uint128(delegated)), 2 * LOCK_AMT);
         assertEq(ve.lockEnd(user1), block.timestamp + ve.LOCKTIME());
     }
 
@@ -127,9 +132,9 @@ contract VotingEscrowTest is Test {
         // Should reset end to be 5 years in the future and increase delegated value of delegatee
         testSuccessDelegate();
         vm.prank(user1);
-        ve.increaseAmount{value: 100}(100);
+        ve.increaseAmount{value: LOCK_AMT}(LOCK_AMT);
         (, , int128 delegated, ) = ve.locked(user2);
-        assertEq(delegated, 300);
+        assertEq(uint256(uint128(delegated)), 3 * LOCK_AMT);
         assertEq(ve.lockEnd(user1), block.timestamp + ve.LOCKTIME());
     }
 
@@ -149,6 +154,30 @@ contract VotingEscrowTest is Test {
         uint256 startBalance = address(user1).balance;
         vm.prank(user1);
         ve.withdraw();
-        assertEq(address(user1).balance - startBalance, 100);
+        assertEq(address(user1).balance - startBalance, LOCK_AMT);
+    }
+
+    function testBalanceOfDelegated() public {
+        // balanceOf & balanceOfAt delegated scenarios #23
+        // It should be tested for different points in time that balanceOf and balanceOfAt
+        // correspond to the expected amount according to the VE model with amounts that are delegated.
+        // It should be tested that it is 0 after expiration
+
+        testSuccessDelegate();
+        (, uint256 end, , ) = ve.locked(user2);
+        for (uint256 i = 0; i < 18; i++) {
+            (, , int128 delegated, ) = ve.locked(user2);
+            uint256 expected = (uint256(uint128(delegated)) *
+                (end - block.timestamp)) / ve.LOCKTIME();
+            uint256 actual = ve.balanceOf(user2);
+            if (actual > expected) {
+                assertLe((actual * 10000) / expected - 10000, 1); // allow 0.01% tolerance for rounding
+            } else {
+                assertLe((expected * 10000) / actual - 10000, 1); // allow 0.01% tolerance for rounding
+            }
+            vm.warp(block.timestamp + 100 days);
+        }
+        vm.warp(end + 1);
+        assertEq(ve.balanceOf(user2), 0);
     }
 }
