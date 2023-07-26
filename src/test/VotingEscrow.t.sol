@@ -63,5 +63,7 @@ contract VotingEscrowTest is Test {
         ve.delegate(user2);
         (, , , address delegatee) = ve.locked(user1);
         assertEq(delegatee, user2);
+        (, , int128 delegated, ) = ve.locked(user2);
+        assertEq(delegated, 200);
     }
 }
