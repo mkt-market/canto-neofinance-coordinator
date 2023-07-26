@@ -112,10 +112,13 @@ contract VotingEscrowTest is Test {
 
     function testSuccessIncreaseUndelegated() public {
         // increaseAmount basic functionality for undelegated lock
+        // Should increase amount / delegated by the provided value, new end should be reset to be 5 years in the future
         testSuccessUnDelegate();
+        vm.warp(block.timestamp + 10 days);
         vm.prank(user1);
         ve.increaseAmount{value: 100}(100);
         (int128 amount, , , ) = ve.locked(user1);
         assertEq(amount, 200);
+        assertEq(ve.lockEnd(user1), block.timestamp + ve.LOCKTIME());
     }
 }
