@@ -37,6 +37,16 @@ contract GaugeControllerTest is DSTest {
         assertTrue(gc.isValidGauge(user1));
     }
 
+    function testAddGaugeExistingGauge() public {
+        vm.startPrank(gov);
+        gc.add_gauge(user1);
+
+        // add_gauge for existing gauge
+        vm.expectRevert("Gauge already exists");
+        gc.add_gauge(user1);
+        vm.stopPrank();
+    }
+
     function testRemoveGaugeForNonExistingGauge() public {
         assertTrue(!gc.isValidGauge(user1));
         vm.prank(gov);
