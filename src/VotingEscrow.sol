@@ -40,7 +40,6 @@ contract VotingEscrow is ReentrancyGuard {
     mapping(uint256 => int128) public slopeChanges;
     mapping(address => LockedBalance) public locked;
 
-
     // Structs
     struct Point {
         int128 bias;
