@@ -109,4 +109,13 @@ contract VotingEscrowTest is Test {
         (, , , address delegatee) = ve.locked(user1);
         assertEq(delegatee, user3);
     }
+
+    function testSuccessIncreaseUndelegated() public {
+        // increaseAmount basic functionality for undelegated lock
+        testSuccessUnDelegate();
+        vm.prank(user1);
+        ve.increaseAmount{value: 100}(100);
+        (int128 amount, , , ) = ve.locked(user1);
+        assertEq(amount, 200);
+    }
 }
