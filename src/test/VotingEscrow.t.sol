@@ -64,4 +64,16 @@ contract VotingEscrowTest is Test {
         (, , , address delegatee) = ve.locked(user1);
         assertEq(delegatee, user2);
     }
+
+    function testRevertDelegateExpired() public {
+        // delegate to delegatee with expired lock
+        testSuccessCreateLock();
+        (, uint256 end, , ) = ve.locked(user1);
+        vm.warp(end + 1);
+        vm.prank(user2);
+        ve.createLock{value: 100}(100);
+        vm.prank(user2);
+        vm.expectRevert("Delegatee lock expired");
+        ve.delegate(user1);
+    }
 }
