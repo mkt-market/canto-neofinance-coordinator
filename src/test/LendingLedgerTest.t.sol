@@ -140,4 +140,34 @@ contract LendingLedgerTest is DSTest {
         vm.expectRevert("Lender balance underflow");
         ledger.sync_ledger(lender, delta);
     }
+
+    function testSyncLedgerWithoutGap() public {
+        address lendingMarket = vm.addr(5201314);
+
+        vm.prank(goverance);
+        ledger.whiteListLendingMarket(lendingMarket, true);
+
+        address lender = users[1];
+
+        int256 delta = 1.1 ether;
+        vm.startPrank(lendingMarket);
+        ledger.sync_ledger(lender, delta);
+
+        uint256 epoch = 0;
+
+        uint256 lendingMarketBalance = ledger.lendingMarketBalances(
+            lendingMarket,
+            lender,
+            epoch
+        );
+
+        assertTrue(lendingMarketBalance == uint256(delta));
+
+        uint256 lendingMarketTotal = ledger.lendingMarketTotalBalance(
+            lendingMarket,
+            epoch
+        );
+
+        assertTrue(lendingMarketTotal == uint256(delta));
+    }
 }
