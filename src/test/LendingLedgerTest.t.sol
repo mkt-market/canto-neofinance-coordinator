@@ -125,4 +125,19 @@ contract LendingLedgerTest is DSTest {
         vm.expectRevert("Market not whitelisted");
         ledger.sync_ledger(lender, delta);
     }
+
+    function testSyncLedgerUnderflow() public {
+        address lendingMarket = vm.addr(5201314);
+
+        vm.prank(goverance);
+        ledger.whiteListLendingMarket(lendingMarket, true);
+
+        address lender = users[1];
+
+        int256 delta = -100;
+        vm.startPrank(lendingMarket);
+
+        vm.expectRevert("Lender balance underflow");
+        ledger.sync_ledger(lender, delta);
+    }
 }
