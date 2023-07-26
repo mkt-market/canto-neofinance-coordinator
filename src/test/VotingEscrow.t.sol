@@ -121,4 +121,15 @@ contract VotingEscrowTest is Test {
         assertEq(delegated, 200);
         assertEq(ve.lockEnd(user1), block.timestamp + ve.LOCKTIME());
     }
+
+    function testSuccessIncreaseDelegated() public {
+        // increaseAmount basic functionality for delegated lock
+        // Should reset end to be 5 years in the future and increase delegated value of delegatee
+        testSuccessDelegate();
+        vm.prank(user1);
+        ve.increaseAmount{value: 100}(100);
+        (, , int128 delegated, ) = ve.locked(user2);
+        assertEq(delegated, 300);
+        assertEq(ve.lockEnd(user1), block.timestamp + ve.LOCKTIME());
+    }
 }
