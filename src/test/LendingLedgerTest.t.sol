@@ -18,6 +18,8 @@ contract LendingLedgerTest is DSTest {
     address guage = address(0);
     address goverance;
 
+    uint256 public constant WEEK = 7 days;
+
     function setUp() public {
         utils = new Utilities();
 
@@ -66,5 +68,21 @@ contract LendingLedgerTest is DSTest {
 
         isWhitelisted = ledger.lendingMarketWhitelist(lendingMarket);
         assertTrue(!isWhitelisted);
+    }
+
+    function testSetRewardWithInvalidEpoch() public {
+        uint248 amountPerEpoch = 1 ether;
+
+        uint256 fromEpoch = 0;
+        uint256 toEpoch = 0;
+
+        vm.startPrank(goverance);
+        ledger.setRewards(fromEpoch, toEpoch, amountPerEpoch);
+
+        fromEpoch = WEEK * 5 + 30 seconds;
+        toEpoch = WEEK * 10 - 26 seconds;
+
+        vm.expectRevert("Invalid timestamp");
+        ledger.setRewards(fromEpoch, toEpoch, amountPerEpoch);
     }
 }
