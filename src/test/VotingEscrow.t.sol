@@ -13,6 +13,7 @@ contract VotingEscrowTest is Test {
     function setUp() public {
         ve = new VotingEscrow("Voting Escrow", "VE");
         vm.deal(user1, 1 ether);
+        vm.deal(user2, 1 ether);
     }
 
     uint256 public constant WEEK = 7 days;
@@ -51,5 +52,16 @@ contract VotingEscrowTest is Test {
         vm.prank(user1);
         vm.expectRevert("Delegatee has no lock");
         ve.delegate(user2);
+    }
+
+    function testSuccessDelegate() public {
+        // successful delegate
+        testSuccessCreateLock();
+        vm.prank(user2);
+        ve.createLock{value: 100}(100);
+        vm.prank(user1);
+        ve.delegate(user2);
+        (, , , address delegatee) = ve.locked(user1);
+        assertEq(delegatee, user2);
     }
 }
