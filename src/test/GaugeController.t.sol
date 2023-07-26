@@ -82,4 +82,10 @@ contract GaugeControllerTest is DSTest {
         // should overwrite the gauge weight
         assertEq(gc.get_gauge_weight(user1), 100);
     }
+
+    function testVoteWithNonWhitelistedGauge() public {
+        vm.prank(user2);
+        vm.expectRevert("Invalid gauge address");
+        gc.vote_for_gauge_weights(user2, 100);
+    }
 }
