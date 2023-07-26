@@ -66,4 +66,20 @@ contract GaugeControllerTest is DSTest {
         vm.expectRevert("Invalid gauge address");
         gc.remove_gauge(user1);
     }
+
+    function testChangeGaugeWeight() public {
+        vm.prank(gov);
+        gc.add_gauge(user1);
+        assertTrue(gc.isValidGauge(user1));
+
+        // Only callable by governance
+        vm.prank(user1);
+        vm.expectRevert();
+        gc.change_gauge_weight(user1, 100);
+
+        vm.prank(gov);
+        gc.change_gauge_weight(user1, 100);
+        // should overwrite the gauge weight
+        assertEq(gc.get_gauge_weight(user1), 100);
+    }
 }
