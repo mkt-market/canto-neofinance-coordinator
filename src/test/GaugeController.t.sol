@@ -88,4 +88,11 @@ contract GaugeControllerTest is DSTest {
         vm.expectRevert("Invalid gauge address");
         gc.vote_for_gauge_weights(user2, 100);
     }
+
+    function testVoteWithInvalidWeight() public {
+        vm.prank(user2);
+        // invalid weight of 999999
+        vm.expectRevert("Invalid user weight");
+        gc.vote_for_gauge_weights(user2, 999999);
+    }
 }
