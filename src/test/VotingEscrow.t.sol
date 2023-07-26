@@ -9,11 +9,13 @@ contract VotingEscrowTest is Test {
 
     address public constant user1 = address(10001);
     address public constant user2 = address(10002);
+    address public constant user3 = address(10003);
 
     function setUp() public {
         ve = new VotingEscrow("Voting Escrow", "VE");
         vm.deal(user1, 1 ether);
         vm.deal(user2, 1 ether);
+        vm.deal(user3, 1 ether);
     }
 
     uint256 public constant WEEK = 7 days;
@@ -95,5 +97,16 @@ contract VotingEscrowTest is Test {
         ve.delegate(user1);
         (, , , address delegatee) = ve.locked(user1);
         assertEq(delegatee, user1);
+    }
+
+    function testSuccessReDelegate() public {
+        // successful redelegate
+        testSuccessDelegate();
+        vm.prank(user3);
+        ve.createLock{value: 100}(100);
+        vm.prank(user1);
+        ve.delegate(user3);
+        (, , , address delegatee) = ve.locked(user1);
+        assertEq(delegatee, user3);
     }
 }
