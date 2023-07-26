@@ -8,6 +8,7 @@ contract VotingEscrowTest is Test {
     VotingEscrow public ve;
 
     address public constant user1 = address(10001);
+    address public constant user2 = address(10002);
 
     function setUp() public {
         ve = new VotingEscrow("Voting Escrow", "VE");
@@ -33,6 +34,14 @@ contract VotingEscrowTest is Test {
         // delegate for non-existing lock
         vm.prank(user1);
         vm.expectRevert("No lock");
+        ve.delegate(user1);
+    }
+
+    function testRevertDelegateAlreadyDelegated() public {
+        testSuccessCreateLock();
+        // delegate to already delegated address
+        vm.prank(user1);
+        vm.expectRevert("Already delegated");
         ve.delegate(user1);
     }
 }
