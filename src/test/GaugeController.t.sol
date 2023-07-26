@@ -5,10 +5,11 @@ import {DSTest} from "ds-test/test.sol";
 import {Utilities} from "./utils/Utilities.sol";
 import {console} from "./utils/Console.sol";
 import {Vm} from "forge-std/Vm.sol";
+import {StdAssertions} from "forge-std/Test.sol";
 import {VotingEscrow} from "../VotingEscrow.sol";
 import {GaugeController} from "../GaugeController.sol";
 
-contract GaugeControllerTest is DSTest {
+contract GaugeControllerTest is DSTest, StdAssertions {
     Vm internal immutable vm = Vm(HEVM_ADDRESS);
 
     Utilities internal utils;
@@ -25,7 +26,13 @@ contract GaugeControllerTest is DSTest {
     function setUp() public {
         utils = new Utilities();
         users = utils.createUsers(5);
-        (gov, user1, user2, gague1, gague2) = (users[0], users[1], users[2], users[3], users[4]);
+        (gov, user1, user2, gague1, gague2) = (
+            users[0],
+            users[1],
+            users[2],
+            users[3],
+            users[4]
+        );
 
         ve = new VotingEscrow("VotingEscrow", "VE");
         gc = new GaugeController(address(ve), address(gov));
@@ -123,6 +130,31 @@ contract GaugeControllerTest is DSTest {
         assertTrue(gc.get_gauge_weight(user1) > 100);
     }
 
+    function testVote10Percent() public {
+        // prepare
+        uint256 v = 10 ether;
+        vm.deal(gov, v);
+        vm.startPrank(gov);
+        ve.createLock{value: v}(v);
+        gc.add_gauge(user1);
+        gc.change_gauge_weight(user1, 100);
+        gc.add_gauge(user2);
+        gc.change_gauge_weight(user2, 100);
+
+        // user1 vote 10%
+        gc.vote_for_gauge_weights(user1, 100);
+        gc.vote_for_gauge_weights(user2, 900);
+
+        // check
+        assertApproxEqRel(
+            gc.get_gauge_weight(user1) * 10,
+            gc.get_total_weight(),
+            0.00001e18
+        );
+
+        vm.stopPrank();
+    }
+
     function testVoteGaugeWeight50Pcnt() public {
         // vote_for_gauge_weights valid vote 50%
         // Should vote for gauge and change weights accordingly
@@ -138,6 +170,9 @@ contract GaugeControllerTest is DSTest {
         gc.vote_for_gauge_weights(gague1, 5000); // vote 50% for gague1
         gc.vote_for_gauge_weights(gague2, 5000); // vote 50% for gauge2
 
-        assertEq((gc.get_total_weight() * 5000) / 10000, gc.get_gauge_weight(gague1));
+        assertEq(
+            (gc.get_total_weight() * 5000) / 10000,
+            gc.get_gauge_weight(gague1)
+        );
     }
 }
