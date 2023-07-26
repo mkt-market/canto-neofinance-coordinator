@@ -213,4 +213,36 @@ contract LendingLedgerTest is DSTest {
         uint256 balanceAfter = address(lender).balance;
         assertTrue(balanceAfter - balanceBefore == 1 ether);
     }
+
+    function testClaimValidLenderMultipleEpoch() public {
+        uint248 amountPerEpoch = 1 ether;
+
+        uint256 fromEpoch = WEEK * 5;
+        uint256 toEpoch = WEEK * 10;
+
+        address lendingMarket = vm.addr(5201314);
+
+        vm.prank(goverance);
+        ledger.whiteListLendingMarket(lendingMarket, true);
+
+        vm.prank(goverance);
+        ledger.setRewards(fromEpoch, toEpoch, amountPerEpoch);
+
+        vm.warp(WEEK * 5);
+        address lender = users[1];
+
+        int256 delta = 1.1 ether;
+        vm.prank(lendingMarket);
+        ledger.sync_ledger(lender, delta);
+
+        payable(ledger).transfer(1000 ether);
+        vm.prank(lender);
+
+        vm.warp(WEEK * 20);
+
+        uint256 balanceBefore = address(lender).balance;
+        ledger.claim(lendingMarket, fromEpoch, fromEpoch + 4 * WEEK);
+        uint256 balanceAfter = address(lender).balance;
+        assertTrue(balanceAfter - balanceBefore == 5 ether);
+    }
 }
