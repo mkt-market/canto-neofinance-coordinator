@@ -104,4 +104,20 @@ contract GaugeControllerTest is DSTest {
         vm.expectRevert("Lock expires too soon");
         gc.vote_for_gauge_weights(user1, 100);
     }
+
+    function testVoteSuccessfully() public {
+        // prepare
+        vm.deal(user1, 100 ether);
+        vm.startPrank(gov);
+        gc.add_gauge(user1);
+        gc.change_gauge_weight(user1, 100);
+        vm.stopPrank();
+
+        uint256 v = 10 ether;
+
+        vm.startPrank(user1);
+        ve.createLock{value: v}(v);
+        gc.vote_for_gauge_weights(user1, 100);
+        assertTrue(gc.get_gauge_weight(user1) > 100);
+    }
 }
