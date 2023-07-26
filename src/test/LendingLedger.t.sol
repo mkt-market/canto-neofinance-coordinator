@@ -8,7 +8,7 @@ import {Vm} from "forge-std/Vm.sol";
 
 import {LendingLeder} from "../LendingLedger.sol";
 
-contract LendingLederTest is DSTest {
+contract LendingLedgerTest is DSTest {
     Vm internal immutable vm = Vm(HEVM_ADDRESS);
 
     LendingLeder lendingLeder;
