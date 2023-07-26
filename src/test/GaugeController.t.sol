@@ -36,4 +36,11 @@ contract GaugeControllerTest is DSTest {
         vm.stopPrank();
         assertTrue(gc.isValidGauge(user1));
     }
+
+    function testRemoveGaugeForNonExistingGauge() public {
+        assertTrue(!gc.isValidGauge(user1));
+        vm.prank(gov);
+        vm.expectRevert("Invalid gauge address");
+        gc.remove_gauge(user1);
+    }
 }
