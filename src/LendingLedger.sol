@@ -29,7 +29,7 @@ contract LendingLeder {
         bool set;
         uint248 amount;
     }
-    mapping(uint256 => RewardInformation) rewardInformation;
+    mapping(uint256 => RewardInformation) public rewardInformation;
 
     /// @notice Check that a provided timestamp is a valid epoch (divisible by WEEK) or infinity
     /// @param _timestamp Timestamp to check
