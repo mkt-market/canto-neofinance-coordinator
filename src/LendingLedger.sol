@@ -64,6 +64,7 @@ contract LendingLeder {
         uint256 _forwardTimestampLimit
     ) private {
         uint256 currEpoch = (block.timestamp / WEEK) * WEEK;
+
         uint256 lastUserUpdateEpoch = lendingMarketBalancesEpoch[_market][
             _lender
         ];
