@@ -322,7 +322,7 @@ contract LendingLedgerTest is DSTest {
         address lender = users[1];
         vm.startPrank(lendingMarket);
 
-        int256 deltaStart = 2 ether;
+        int256 deltaStart = 1 ether;
         uint256 epochStart = (block.timestamp / WEEK) * WEEK;
         ledger.sync_ledger(lender, deltaStart);
 
