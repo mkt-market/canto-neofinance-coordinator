@@ -193,4 +193,45 @@ contract GaugeControllerTest is DSTest, StdAssertions {
 
         assertEq(gc.vote_user_power(user1), 10000);
     }
+
+    function testVoteDifferentTime() public {
+        vm.startPrank(gov);
+        gc.add_gauge(gague1);
+        gc.add_gauge(gague2);
+        gc.change_gauge_weight(gague1, 50);
+        gc.change_gauge_weight(gague2, 50);
+        vm.stopPrank();
+
+        uint256 relTime = 10 weeks;
+
+        vm.prank(user1);
+        ve.createLock{value: 1 ether}(1 ether);
+        vm.prank(user2);
+        ve.createLock{value: 1 ether}(1 ether);
+
+        vm.startPrank(user1);
+        gc.vote_for_gauge_weights(gague1, 8000);
+        gc.vote_for_gauge_weights(gague2, 2000);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + relTime);
+
+        gc.checkpoint_gauge(gague1);
+        gc.checkpoint_gauge(gague2);
+
+        vm.startPrank(user2);
+        gc.vote_for_gauge_weights(gague1, 9000);
+        gc.vote_for_gauge_weights(gague2, 1000);
+        vm.stopPrank();
+
+        uint256 rel_weigth_1 = gc.gauge_relative_weight(gague1, block.timestamp);
+        uint256 rel_weigth_2 = gc.gauge_relative_weight(gague2, block.timestamp);
+
+        gc.checkpoint_gauge(gague1);
+        gc.checkpoint_gauge(gague2);
+
+        assertApproxEqAbs(rel_weigth_1 + rel_weigth_2, 1e18, 1);
+        assertApproxEqRel(gc.gauge_relative_weight(gague1, block.timestamp), 0.8e18, 0.1e18);
+        assertApproxEqRel(gc.gauge_relative_weight(gague2, block.timestamp), 0.2e18, 0.1e18);
+    }
 }
