@@ -250,7 +250,7 @@ contract GaugeController {
         uint256 old_sum_slope = points_sum[next_time].slope;
 
         points_weight[_gauge_addr][next_time].bias = Math.max(old_weight_bias + new_bias, old_bias) - old_bias;
-        points_sum[next_time].bias = Math.max(old_sum_bias + new_bias, old_sum_bias) - old_bias;
+        points_sum[next_time].bias = Math.max(old_sum_bias + new_bias, old_bias) - old_bias;
         if (old_slope.end > next_time) {
             points_weight[_gauge_addr][next_time].slope =
                 Math.max(old_weight_slope + new_slope.slope, old_slope.slope) -
