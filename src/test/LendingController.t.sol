@@ -80,4 +80,14 @@ contract LendingLedgerTest is DSTest {
         isWhitelisted = ledger.lendingMarketWhitelist(lendingMarket);
         assertTrue(!isWhitelisted);
     }
+
+    function testSetRewardWithInvalidEpoch() public {
+        uint248 amountPerEpoch = 1 ether;
+
+        uint256 fromEpoch = WEEK * 5 + 30 seconds;
+        uint256 toEpoch = WEEK * 10 - 26 seconds;
+
+        vm.expectRevert("Invalid timestamp");
+        ledger.setRewards(fromEpoch, toEpoch, amountPerEpoch);
+    }
 }
