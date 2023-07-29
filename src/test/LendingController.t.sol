@@ -175,4 +175,38 @@ contract LendingLedgerTest is DSTest {
 
         assertTrue(lendingMarketTotal == uint256(delta));
     }
+
+    function testSyncLedgerWithGaps() public {
+        // prepare
+        whiteListMarket();
+        vm.warp(block.timestamp + WEEK);
+
+        vm.startPrank(lendingMarket);
+
+        int256 deltaStart = 1 ether;
+        uint256 epochStart = (block.timestamp / WEEK) * WEEK;
+        ledger.sync_ledger(lender, deltaStart);
+
+        // gaps of 3 week
+        uint256 newTime = block.timestamp + 3 * WEEK;
+        vm.warp(newTime);
+        int256 deltaEnd = 1 ether;
+        uint256 epochEnd = (newTime / WEEK) * WEEK;
+        ledger.sync_ledger(lender, deltaEnd);
+
+        // lender balance is forwarded and set
+        uint256 lenderBalance = ledger.lendingMarketBalances(
+            lendingMarket,
+            lender,
+            epochEnd
+        );
+        assertEq(lenderBalance, uint256(deltaStart) + uint256(deltaEnd));
+
+        // total balance is forwarded and set
+        uint256 totalBalance = ledger.lendingMarketTotalBalance(
+            lendingMarket,
+            epochEnd
+        );
+        assertEq(totalBalance, uint256(deltaStart) + uint256(deltaEnd));
+    }
 }
