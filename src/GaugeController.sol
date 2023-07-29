@@ -25,7 +25,7 @@ contract GaugeController {
     address public governance;
     mapping(address => bool) public isValidGauge;
     mapping(address => mapping(address => VotedSlope)) public vote_user_slopes;
-    mapping(address => uint256) vote_user_power;
+    mapping(address => uint256) public vote_user_power;
     mapping(address => mapping(address => uint256)) public last_user_vote;
 
     mapping(address => mapping(uint256 => Point)) public points_weight;
