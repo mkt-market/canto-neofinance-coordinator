@@ -178,11 +178,9 @@ contract LendingLedgerTest is DSTest {
 
     function testSyncLedgerWithGaps() public {
         // prepare
+        whiteListMarket();
         vm.warp(block.timestamp + WEEK);
-        address lendingMarket = vm.addr(5201314);
-        vm.prank(goverance);
-        ledger.whiteListLendingMarket(lendingMarket, true);
-        address lender = users[1];
+
         vm.startPrank(lendingMarket);
 
         int256 deltaStart = 1 ether;
