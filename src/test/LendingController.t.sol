@@ -50,4 +50,19 @@ contract LendingLedgerTest is DSTest {
         bool isWhitelisted = ledger.lendingMarketWhitelist(lendingMarket);
         assertTrue(isWhitelisted);
     }
+
+    function testAddWhitelistLendingMarketAgain() public {
+        address lendingMarket = vm.addr(5201314);
+
+        vm.startPrank(goverance);
+        ledger.whiteListLendingMarket(lendingMarket, true);
+
+        bool isWhitelisted = ledger.lendingMarketWhitelist(lendingMarket);
+        assertTrue(isWhitelisted);
+
+        vm.expectRevert("No change");
+        ledger.whiteListLendingMarket(lendingMarket, true);
+
+        assertTrue(isWhitelisted);
+    }
 }
