@@ -90,4 +90,20 @@ contract LendingLedgerTest is DSTest {
         vm.expectRevert("Invalid timestamp");
         ledger.setRewards(fromEpoch, toEpoch, amountPerEpoch);
     }
+
+    function testSetValidRewardDistribution() public {
+        uint248 amountPerEpoch = 1 ether;
+
+        uint256 fromEpoch = WEEK * 5;
+        uint256 toEpoch = WEEK * 10;
+
+        vm.startPrank(goverance);
+        ledger.setRewards(fromEpoch, toEpoch, amountPerEpoch);
+
+        for (uint256 i = fromEpoch; i <= toEpoch; i += WEEK) {
+            (bool set, uint248 amount) = ledger.rewardInformation(i);
+            assertTrue(set);
+            assertTrue(amount == amountPerEpoch);
+        }
+    }
 }
