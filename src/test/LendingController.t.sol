@@ -29,6 +29,10 @@ contract LendingLedgerTest is DSTest {
 
     uint256 public constant WEEK = 7 days;
 
+    address lendingMarket;
+
+    address lender;
+
     function setUp() public {
         utils = new Utilities();
 
@@ -39,6 +43,10 @@ contract LendingLedgerTest is DSTest {
         controller = new DummyGaugeController();
 
         ledger = new LendingLeder(address(controller), goverance);
+
+        lendingMarket = vm.addr(5201314);
+
+        lender = users[1];
     }
 
     function testAddWhitelistLendingMarket() public {
@@ -118,5 +126,13 @@ contract LendingLedgerTest is DSTest {
 
         vm.expectRevert("Rewards already set");
         ledger.setRewards(fromEpoch, toEpoch, amountPerEpoch);
+    }
+
+    function testSyncLedgerMarketNotWhitelisted() public {
+        int256 delta = 0.5 ether;
+
+        vm.startPrank(lendingMarket);
+        vm.expectRevert("Market not whitelisted");
+        ledger.sync_ledger(lender, delta);
     }
 }
