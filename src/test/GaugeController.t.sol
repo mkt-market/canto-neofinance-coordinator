@@ -250,8 +250,8 @@ contract GaugeControllerTest is DSTest, StdAssertions {
         uint256 rel_weight1 = gc.gauge_relative_weight(gague1, block.timestamp);
         uint256 rel_weight2 = gc.gauge_relative_weight(gague2, block.timestamp);
 
-        assertEq(rel_weight1, weights[0] * 1e18 / 1e2);
-        assertEq(rel_weight2, weights[1] * 1e18 / 1e2);
+        assertEq(rel_weight1, (weights[0] * 1e18) / 1e2);
+        assertEq(rel_weight2, (weights[1] * 1e18) / 1e2);
     }
 
     // TODO similar functions in forge Test.sol helper contract, might consider to move
