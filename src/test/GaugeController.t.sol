@@ -250,6 +250,21 @@ contract GaugeControllerTest is DSTest, StdAssertions {
         assertEq(rel_weigth_2, 0);
     }
 
+    function testVoteExpiry() public {
+        vm.startPrank(gov);
+        gc.add_gauge(gague1);
+        gc.change_gauge_weight(gague1, 100);
+        vm.stopPrank();
+
+        vm.startPrank(user1);
+        ve.createLock{value: 1 ether}(1 ether);
+
+        skip(ve.LOCKTIME());
+
+        vm.expectRevert("Lock expires too soon");
+        gc.vote_for_gauge_weights(gague1, 10000);
+    }
+
     function checkpoint() public {
         skip(MONTH);
         mine(1);
