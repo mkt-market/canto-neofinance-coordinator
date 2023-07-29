@@ -33,6 +33,12 @@ contract LendingLedgerTest is DSTest {
 
     address lender;
 
+    uint248 amountPerEpoch = 1 ether;
+
+    uint256 fromEpoch = WEEK * 5;
+
+    uint256 toEpoch = WEEK * 10;
+
     function setUp() public {
         utils = new Utilities();
 
@@ -208,5 +214,36 @@ contract LendingLedgerTest is DSTest {
             epochEnd
         );
         assertEq(totalBalance, uint256(deltaStart) + uint256(deltaEnd));
+    }
+
+    function setupStateBeforeClaim() internal {
+        whiteListMarket();
+
+        vm.prank(goverance);
+        ledger.setRewards(fromEpoch, toEpoch, amountPerEpoch);
+
+        vm.warp(WEEK * 5);
+
+        int256 delta = 1.1 ether;
+        vm.prank(lendingMarket);
+        ledger.sync_ledger(lender, delta);
+
+        // airdrop ledger enough token balance for user to claim
+        payable(ledger).transfer(1000 ether);
+
+        vm.warp(WEEK * 20);
+    }
+
+    function testClaimValidLenderOneEpoch() public {
+        setupStateBeforeClaim();
+
+        uint256 balanceBefore = address(lender).balance;
+        vm.prank(lender);
+        ledger.claim(lendingMarket, fromEpoch, fromEpoch);
+        uint256 balanceAfter = address(lender).balance;
+        assertTrue(balanceAfter - balanceBefore == 1 ether);
+
+        uint256 claimedEpoch = ledger.userClaimedEpoch(lendingMarket, lender);
+        assertTrue(claimedEpoch - fromEpoch == WEEK);
     }
 }
