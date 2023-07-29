@@ -177,4 +177,20 @@ contract GaugeControllerTest is DSTest, StdAssertions {
 
         assertEq(gc.vote_user_power(user1), 42);
     }
+
+    function testVotePowerIsSumVotes() public {
+        vm.startPrank(gov);
+        gc.add_gauge(gague1);
+        gc.add_gauge(gague2);
+        gc.change_gauge_weight(gague1, 70);
+        gc.change_gauge_weight(gague2, 30);
+        vm.stopPrank();
+
+        vm.startPrank(user1);
+        ve.createLock{value: 1 ether}(1 ether);
+        gc.vote_for_gauge_weights(gague1, 4000);
+        gc.vote_for_gauge_weights(gague2, 6000);
+
+        assertEq(gc.vote_user_power(user1), 10000);
+    }
 }
