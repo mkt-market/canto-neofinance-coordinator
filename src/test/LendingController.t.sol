@@ -106,4 +106,17 @@ contract LendingLedgerTest is DSTest {
             assertTrue(amount == amountPerEpoch);
         }
     }
+
+    function testSetRewardTwice() public {
+        uint248 amountPerEpoch = 1 ether;
+
+        uint256 fromEpoch = WEEK * 5;
+        uint256 toEpoch = WEEK * 10;
+
+        vm.startPrank(goverance);
+        ledger.setRewards(fromEpoch, toEpoch, amountPerEpoch);
+
+        vm.expectRevert("Rewards already set");
+        ledger.setRewards(fromEpoch, toEpoch, amountPerEpoch);
+    }
 }
