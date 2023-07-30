@@ -240,6 +240,32 @@ contract GaugeControllerTest is DSTest, StdAssertions {
 
         gc.checkpoint_gauge(gague1);
         gc.checkpoint_gauge(gague2);
+
+    function testRelativeWeightWrite() public {
+        vm.startPrank(gov);
+        gc.add_gauge(gague1);
+        gc.add_gauge(gague2);
+        uint256[2] memory weights = [uint256(80), 20];
+        gc.change_gauge_weight(gague1, weights[0]);
+        gc.change_gauge_weight(gague2, weights[1]);
+        vm.stopPrank();
+
+        skip(MONTH);
+
+        uint256 base_rel_weight1 = gc.gauge_relative_weight(gague1, block.timestamp);
+        uint256 base_rel_weight2 = gc.gauge_relative_weight(gague2, block.timestamp);
+
+        assertEq(base_rel_weight1, 0);
+        assertEq(base_rel_weight2, 0);
+
+        gc.gauge_relative_weight_write(gague1, block.timestamp);
+        gc.gauge_relative_weight_write(gague2, block.timestamp);
+
+        uint256 rel_weight1 = gc.gauge_relative_weight(gague1, block.timestamp);
+        uint256 rel_weight2 = gc.gauge_relative_weight(gague2, block.timestamp);
+
+        assertEq(rel_weight1, (weights[0] * 1e18) / 1e2);
+        assertEq(rel_weight2, (weights[1] * 1e18) / 1e2);
     }
 
     // TODO similar functions in forge Test.sol helper contract, might consider to move
@@ -249,5 +275,19 @@ contract GaugeControllerTest is DSTest, StdAssertions {
 
     function mine(uint256 blocks) public {
         vm.roll(block.number + blocks);
+        
+    function testVoteOverPowerReverts() public {
+        vm.startPrank(gov);
+        gc.add_gauge(gague1);
+        gc.add_gauge(gague2);
+        gc.change_gauge_weight(gague1, 50);
+        gc.change_gauge_weight(gague2, 50);
+        vm.stopPrank();
+
+        vm.startPrank(user1);
+        ve.createLock{value: 1 ether}(1 ether);
+        gc.vote_for_gauge_weights(gague1, 5000);
+        vm.expectRevert("Used too much power");
+        gc.vote_for_gauge_weights(gague2, 5100);
     }
 }
