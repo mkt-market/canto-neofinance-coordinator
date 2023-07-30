@@ -9,10 +9,7 @@ import {Vm} from "forge-std/Vm.sol";
 import "../LendingLedger.sol";
 
 contract DummyGaugeController {
-    function gauge_relative_weight_write(
-        address _gauge,
-        uint256 _time
-    ) external returns (uint256) {
+    function gauge_relative_weight_write(address _gauge, uint256 _time) external returns (uint256) {
         return 1 ether;
     }
 }
@@ -166,18 +163,11 @@ contract LendingLedgerTest is DSTest {
 
         uint256 epoch = 0;
 
-        uint256 lendingMarketBalance = ledger.lendingMarketBalances(
-            lendingMarket,
-            lender,
-            epoch
-        );
+        uint256 lendingMarketBalance = ledger.lendingMarketBalances(lendingMarket, lender, epoch);
 
         assertTrue(lendingMarketBalance == uint256(delta));
 
-        uint256 lendingMarketTotal = ledger.lendingMarketTotalBalance(
-            lendingMarket,
-            epoch
-        );
+        uint256 lendingMarketTotal = ledger.lendingMarketTotalBalance(lendingMarket, epoch);
 
         assertTrue(lendingMarketTotal == uint256(delta));
     }
@@ -201,18 +191,11 @@ contract LendingLedgerTest is DSTest {
         ledger.sync_ledger(lender, deltaEnd);
 
         // lender balance is forwarded and set
-        uint256 lenderBalance = ledger.lendingMarketBalances(
-            lendingMarket,
-            lender,
-            epochEnd
-        );
+        uint256 lenderBalance = ledger.lendingMarketBalances(lendingMarket, lender, epochEnd);
         assertEq(lenderBalance, uint256(deltaStart) + uint256(deltaEnd));
 
         // total balance is forwarded and set
-        uint256 totalBalance = ledger.lendingMarketTotalBalance(
-            lendingMarket,
-            epochEnd
-        );
+        uint256 totalBalance = ledger.lendingMarketTotalBalance(lendingMarket, epochEnd);
         assertEq(totalBalance, uint256(deltaStart) + uint256(deltaEnd));
     }
 
