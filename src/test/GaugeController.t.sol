@@ -23,6 +23,8 @@ contract GaugeControllerTest is DSTest, StdAssertions {
     VotingEscrow internal ve;
     GaugeController internal gc;
 
+    uint256 MONTH = 4 weeks;
+
     function setUp() public {
         utils = new Utilities();
         users = utils.createUsers(5);
@@ -163,6 +165,103 @@ contract GaugeControllerTest is DSTest, StdAssertions {
         assertEq((gc.get_total_weight() * 5000) / 10000, gc.get_gauge_weight(gague1));
     }
 
+    function testVoteDifferentTime() public {
+        vm.startPrank(gov);
+        gc.add_gauge(gague1);
+        gc.add_gauge(gague2);
+        vm.stopPrank();
+
+        vm.deal(user1, 1010 ether);
+        vm.deal(user2, 1010 ether);
+
+        uint256 lockStart = block.timestamp;
+        vm.prank(user1);
+        ve.createLock{value: 1000 ether}(1000 ether);
+        vm.prank(user2);
+        ve.createLock{value: 1000 ether}(1000 ether);
+
+        // [(uint, uint), ...]
+        uint256[4] memory weights = [uint256(8000), 2000, 9000, 1000]; // explicit casting
+
+        vm.startPrank(user1);
+        gc.vote_for_gauge_weights(gague1, weights[0]);
+        gc.vote_for_gauge_weights(gague2, weights[1]);
+        // TODO would be nice to have, but the mapping is not public.
+        // assertEq(gc.vote_user_power(user1), 10000);
+        vm.stopPrank();
+
+        for (uint256 i; i < 10; i++) {
+            checkpoint();
+            uint256 _rel_weigth_1 = gc.gauge_relative_weight(gague1, block.timestamp);
+            uint256 _rel_weigth_2 = gc.gauge_relative_weight(gague2, block.timestamp);
+            assertApproxEqRel(_rel_weigth_1, (weights[0] * 1e18) / 1e3, 1e18);
+            assertApproxEqRel(_rel_weigth_2, (weights[1] * 1e18) / 1e3, 1e18);
+        }
+
+        vm.startPrank(user2);
+        gc.vote_for_gauge_weights(gague1, weights[2]);
+        gc.vote_for_gauge_weights(gague2, weights[3]);
+        // assertEq(gc.vote_user_power(user2), 10000);
+        vm.stopPrank();
+
+        for (uint256 i; i < 10; i++) {
+            checkpoint();
+            uint256 _rel_weigth_1 = gc.gauge_relative_weight(gague1, block.timestamp);
+            uint256 _rel_weigth_2 = gc.gauge_relative_weight(gague2, block.timestamp);
+            assertApproxEqRel(_rel_weigth_1, ((weights[0] + weights[2]) * 1e18) / 2e3, 1e18);
+            assertApproxEqRel(_rel_weigth_2, ((weights[1] + weights[3]) * 1e18) / 2e3, 1e18);
+        }
+
+        skip((ve.LOCKTIME() - lockStart + ve.WEEK() - 1)); // warp to unlock
+        uint256 rel_weigth_1 = gc.gauge_relative_weight(gague1, block.timestamp);
+        uint256 rel_weigth_2 = gc.gauge_relative_weight(gague2, block.timestamp);
+        assertEq(rel_weigth_1, 0);
+        assertEq(rel_weigth_2, 0);
+    }
+
+    function checkpoint() public {
+        skip(MONTH);
+        mine(1);
+
+        gc.checkpoint_gauge(gague1);
+        gc.checkpoint_gauge(gague2);
+    }
+
+    function testRelativeWeightWrite() public {
+        vm.startPrank(gov);
+        gc.add_gauge(gague1);
+        gc.add_gauge(gague2);
+        uint256[2] memory weights = [uint256(80), 20];
+        gc.change_gauge_weight(gague1, weights[0]);
+        gc.change_gauge_weight(gague2, weights[1]);
+        vm.stopPrank();
+
+        skip(MONTH);
+
+        uint256 base_rel_weight1 = gc.gauge_relative_weight(gague1, block.timestamp);
+        uint256 base_rel_weight2 = gc.gauge_relative_weight(gague2, block.timestamp);
+
+        assertEq(base_rel_weight1, 0);
+        assertEq(base_rel_weight2, 0);
+
+        gc.gauge_relative_weight_write(gague1, block.timestamp);
+        gc.gauge_relative_weight_write(gague2, block.timestamp);
+
+        uint256 rel_weight1 = gc.gauge_relative_weight(gague1, block.timestamp);
+        uint256 rel_weight2 = gc.gauge_relative_weight(gague2, block.timestamp);
+
+        assertEq(rel_weight1, (weights[0] * 1e18) / 1e2);
+        assertEq(rel_weight2, (weights[1] * 1e18) / 1e2);
+    }
+
+    // TODO similar functions in forge Test.sol helper contract, might consider to move
+    function skip(uint256 time) public {
+        vm.warp(block.timestamp + time);
+    }
+
+    function mine(uint256 blocks) public {
+        vm.roll(block.number + blocks);
+        
     function testVoteOverPowerReverts() public {
         vm.startPrank(gov);
         gc.add_gauge(gague1);
