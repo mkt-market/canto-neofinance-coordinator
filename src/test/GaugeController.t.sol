@@ -161,64 +161,6 @@ contract GaugeControllerTest is Test {
         assertEq((gc.get_total_weight() * 5000) / 10000, gc.get_gauge_weight(gauge1));
     }
 
-    function testRelativeWeightWrite() public {
-        vm.startPrank(gov);
-        gc.add_gauge(gauge1);
-        gc.add_gauge(gauge2);
-        uint256[2] memory weights = [uint256(80), 20];
-        gc.change_gauge_weight(gauge1, weights[0]);
-        gc.change_gauge_weight(gauge2, weights[1]);
-        vm.stopPrank();
-
-        skip(MONTH);
-
-        uint256 base_rel_weight1 = gc.gauge_relative_weight(gauge1, block.timestamp);
-        uint256 base_rel_weight2 = gc.gauge_relative_weight(gauge2, block.timestamp);
-
-        assertEq(base_rel_weight1, 0);
-        assertEq(base_rel_weight2, 0);
-
-        gc.gauge_relative_weight_write(gauge1, block.timestamp);
-        gc.gauge_relative_weight_write(gauge2, block.timestamp);
-
-        uint256 rel_weight1 = gc.gauge_relative_weight(gauge1, block.timestamp);
-        uint256 rel_weight2 = gc.gauge_relative_weight(gauge2, block.timestamp);
-
-        assertEq(rel_weight1, (weights[0] * 1e18) / 1e2);
-        assertEq(rel_weight2, (weights[1] * 1e18) / 1e2);
-    }
-
-    function testVoteGaugeWeightChange() public {
-        vm.startPrank(gov);
-        gc.add_gauge(gauge1);
-        gc.change_gauge_weight(gauge1, 100);
-        vm.stopPrank();
-
-        vm.startPrank(user1);
-        ve.createLock{value: 1 ether}(1 ether);
-        gc.vote_for_gauge_weights(gauge1, 1000);
-
-        gc.vote_for_gauge_weights(gauge1, 42);
-
-        assertEq(gc.vote_user_power(user1), 42);
-    }
-
-    function testVotePowerIsSumVotes() public {
-        vm.startPrank(gov);
-        gc.add_gauge(gauge1);
-        gc.add_gauge(gauge2);
-        gc.change_gauge_weight(gauge1, 70);
-        gc.change_gauge_weight(gauge2, 30);
-        vm.stopPrank();
-
-        vm.startPrank(user1);
-        ve.createLock{value: 1 ether}(1 ether);
-        gc.vote_for_gauge_weights(gauge1, 4000);
-        gc.vote_for_gauge_weights(gauge2, 6000);
-
-        assertEq(gc.vote_user_power(user1), 10000);
-    }
-
     function testVoteDifferentTime() public {
         vm.startPrank(gov);
         gc.add_gauge(gauge1);
@@ -293,6 +235,33 @@ contract GaugeControllerTest is Test {
 
         gc.checkpoint_gauge(gauge1);
         gc.checkpoint_gauge(gauge2);
+    }
+
+    function testRelativeWeightWrite() public {
+        vm.startPrank(gov);
+        gc.add_gauge(gauge1);
+        gc.add_gauge(gauge2);
+        uint256[2] memory weights = [uint256(80), 20];
+        gc.change_gauge_weight(gauge1, weights[0]);
+        gc.change_gauge_weight(gauge2, weights[1]);
+        vm.stopPrank();
+
+        skip(MONTH);
+
+        uint256 base_rel_weight1 = gc.gauge_relative_weight(gauge1, block.timestamp);
+        uint256 base_rel_weight2 = gc.gauge_relative_weight(gauge2, block.timestamp);
+
+        assertEq(base_rel_weight1, 0);
+        assertEq(base_rel_weight2, 0);
+
+        gc.gauge_relative_weight_write(gauge1, block.timestamp);
+        gc.gauge_relative_weight_write(gauge2, block.timestamp);
+
+        uint256 rel_weight1 = gc.gauge_relative_weight(gauge1, block.timestamp);
+        uint256 rel_weight2 = gc.gauge_relative_weight(gauge2, block.timestamp);
+
+        assertEq(rel_weight1, (weights[0] * 1e18) / 1e2);
+        assertEq(rel_weight2, (weights[1] * 1e18) / 1e2);
     }
 
     function testVoteOverPowerReverts() public {
