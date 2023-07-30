@@ -247,6 +247,19 @@ contract LendingLedgerTest is DSTest {
         assertTrue(claimedEpoch - fromEpoch == WEEK);
     }
 
+    function testClaimValidLenderMultipleEpoch() public {
+        setupStateBeforeClaim();
+
+        uint256 balanceBefore = address(lender).balance;
+        vm.prank(lender);
+        ledger.claim(lendingMarket, fromEpoch, toEpoch);
+        uint256 balanceAfter = address(lender).balance;
+        assertTrue(balanceAfter - balanceBefore == 6 ether);
+
+        uint256 claimedEpoch = ledger.userClaimedEpoch(lendingMarket, lender);
+        assertTrue(claimedEpoch - toEpoch == WEEK);
+    }
+
     function testClaimTwiceForEpoch() public {
         uint248 amountPerEpoch = 1 ether;
 
