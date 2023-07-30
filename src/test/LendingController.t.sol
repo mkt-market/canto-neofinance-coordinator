@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity >=0.8.0;
 
-import {DSTest} from "ds-test/test.sol";
+import {Test} from "forge-std/Test.sol";
 import {Utilities} from "./utils/Utilities.sol";
 import {console} from "./utils/Console.sol";
-import {Vm} from "forge-std/Vm.sol";
 
 import "../LendingLedger.sol";
 
@@ -14,9 +13,7 @@ contract DummyGaugeController {
     }
 }
 
-contract LendingLedgerTest is DSTest {
-    Vm internal immutable vm = Vm(HEVM_ADDRESS);
-
+contract LendingLedgerTest is Test {
     Utilities internal utils;
     address payable[] internal users;
 
@@ -308,5 +305,39 @@ contract LendingLedgerTest is DSTest {
         ledger.claim(lendingMarket, fromEpoch, type(uint256).max);
         uint256 balanceAfter = address(lender).balance;
         assertTrue(balanceAfter - balanceBefore == 6 ether);
+    }
+
+    function testClaimSkipForfeitsRewards() public {
+        setupStateBeforeClaim();
+
+        vm.startPrank(lender);
+        uint256 beforeClaim = vm.snapshot();
+
+        uint256 balanceBefore = address(lender).balance;
+        ledger.claim(lendingMarket, fromEpoch + 2 weeks, toEpoch);
+        uint256 balanceAfter = address(lender).balance;
+        assertEq(balanceAfter - balanceBefore, 4 ether);
+
+        balanceBefore = address(lender).balance;
+        ledger.claim(lendingMarket, fromEpoch, fromEpoch + 1 weeks);
+        balanceAfter = address(lender).balance;
+        assertEq(balanceAfter, balanceBefore);
+
+        balanceBefore = address(lender).balance;
+        ledger.claim(lendingMarket, fromEpoch, toEpoch);
+        balanceAfter = address(lender).balance;
+        assertEq(balanceAfter, balanceBefore);
+
+        vm.revertTo(beforeClaim);
+
+        balanceBefore = address(lender).balance;
+        ledger.claim(lendingMarket, fromEpoch, fromEpoch + 2 weeks);
+        balanceAfter = address(lender).balance;
+        assertEq(balanceAfter - balanceBefore, 3 ether);
+
+        balanceBefore = address(lender).balance;
+        ledger.claim(lendingMarket, fromEpoch + 3 weeks, toEpoch);
+        balanceAfter = address(lender).balance;
+        assertEq(balanceAfter - balanceBefore, 3 ether);
     }
 }
