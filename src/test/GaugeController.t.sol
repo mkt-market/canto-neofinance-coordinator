@@ -309,4 +309,19 @@ contract GaugeControllerTest is Test {
         vm.expectRevert("Used too much power");
         gc.vote_for_gauge_weights(gauge2, 5100);
     }
+
+    function testVoteGaugeWeightChange() public {
+        vm.startPrank(gov);
+        gc.add_gauge(gauge1);
+        gc.change_gauge_weight(gauge1, 100);
+        vm.stopPrank();
+
+        vm.startPrank(user1);
+        ve.createLock{value: 1 ether}(1 ether);
+        gc.vote_for_gauge_weights(gauge1, 1000);
+
+        gc.vote_for_gauge_weights(gauge1, 42);
+
+        assertEq(gc.vote_user_power(user1), 42);
+    }
 }
