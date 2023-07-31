@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity >=0.8.0;
 
-import {DSTest} from "ds-test/test.sol";
+import {Test} from "forge-std/Test.sol";
 import {Utilities} from "./utils/Utilities.sol";
 import {console} from "./utils/Console.sol";
-import {Vm} from "forge-std/Vm.sol";
 
 import "../LendingLedger.sol";
 
@@ -14,9 +13,7 @@ contract DummyGaugeController {
     }
 }
 
-contract LendingLedgerTest is DSTest {
-    Vm internal immutable vm = Vm(HEVM_ADDRESS);
-
+contract LendingLedgerTest is Test {
     Utilities internal utils;
     address payable[] internal users;
 
@@ -228,5 +225,119 @@ contract LendingLedgerTest is DSTest {
 
         uint256 claimedEpoch = ledger.userClaimedEpoch(lendingMarket, lender);
         assertTrue(claimedEpoch - fromEpoch == WEEK);
+    }
+
+    function testClaimValidLenderMultipleEpoch() public {
+        setupStateBeforeClaim();
+
+        uint256 balanceBefore = address(lender).balance;
+        vm.prank(lender);
+        ledger.claim(lendingMarket, fromEpoch, toEpoch);
+        uint256 balanceAfter = address(lender).balance;
+        assertTrue(balanceAfter - balanceBefore == 6 ether);
+
+        uint256 claimedEpoch = ledger.userClaimedEpoch(lendingMarket, lender);
+        assertTrue(claimedEpoch - toEpoch == WEEK);
+    }
+
+    function testClaimTwiceForEpoch() public {
+        uint248 amountPerEpoch = 1 ether;
+
+        uint256 fromEpoch = WEEK * 5;
+        uint256 toEpoch = WEEK * 10;
+
+        address lendingMarket = vm.addr(5201314);
+
+        vm.prank(goverance);
+        ledger.whiteListLendingMarket(lendingMarket, true);
+
+        vm.prank(goverance);
+        ledger.setRewards(fromEpoch, toEpoch, amountPerEpoch);
+
+        vm.warp(WEEK * 5);
+        address lender = users[1];
+
+        int256 delta = 1.1 ether;
+        vm.prank(lendingMarket);
+        ledger.sync_ledger(lender, delta);
+
+        payable(ledger).transfer(1000 ether);
+        vm.prank(lender);
+
+        vm.warp(WEEK * 20);
+
+        uint256 balanceBefore = address(lender).balance;
+        ledger.claim(lendingMarket, fromEpoch, fromEpoch);
+        uint256 balanceAfter = address(lender).balance;
+        assertTrue(balanceAfter - balanceBefore == 1 ether);
+
+        vm.expectRevert("No deposits for this user");
+        ledger.claim(lendingMarket, fromEpoch, fromEpoch);
+    }
+
+    function testClaimTooHighEndEpoch() public {
+        uint248 amountPerEpoch = 1 ether;
+
+        uint256 fromEpoch = WEEK * 5;
+        uint256 toEpoch = WEEK * 12;
+
+        address lendingMarket = vm.addr(5201314);
+
+        vm.prank(goverance);
+        ledger.whiteListLendingMarket(lendingMarket, true);
+
+        vm.prank(goverance);
+        ledger.setRewards(fromEpoch, toEpoch, amountPerEpoch);
+
+        vm.warp(WEEK * 5);
+        address lender = users[1];
+
+        int256 delta = 1.1 ether;
+        vm.prank(lendingMarket);
+        ledger.sync_ledger(lender, delta);
+
+        payable(ledger).transfer(1000 ether);
+        vm.prank(lender);
+
+        vm.warp(WEEK * 11);
+
+        uint256 balanceBefore = address(lender).balance;
+        ledger.claim(lendingMarket, fromEpoch, type(uint256).max);
+        uint256 balanceAfter = address(lender).balance;
+        assertTrue(balanceAfter - balanceBefore == 6 ether);
+    }
+
+    function testClaimSkipForfeitsRewards() public {
+        setupStateBeforeClaim();
+
+        vm.startPrank(lender);
+        uint256 beforeClaim = vm.snapshot();
+
+        uint256 balanceBefore = address(lender).balance;
+        ledger.claim(lendingMarket, fromEpoch + 2 weeks, toEpoch);
+        uint256 balanceAfter = address(lender).balance;
+        assertEq(balanceAfter - balanceBefore, 4 ether);
+
+        balanceBefore = address(lender).balance;
+        ledger.claim(lendingMarket, fromEpoch, fromEpoch + 1 weeks);
+        balanceAfter = address(lender).balance;
+        assertEq(balanceAfter, balanceBefore);
+
+        balanceBefore = address(lender).balance;
+        ledger.claim(lendingMarket, fromEpoch, toEpoch);
+        balanceAfter = address(lender).balance;
+        assertEq(balanceAfter, balanceBefore);
+
+        vm.revertTo(beforeClaim);
+
+        balanceBefore = address(lender).balance;
+        ledger.claim(lendingMarket, fromEpoch, fromEpoch + 2 weeks);
+        balanceAfter = address(lender).balance;
+        assertEq(balanceAfter - balanceBefore, 3 ether);
+
+        balanceBefore = address(lender).balance;
+        ledger.claim(lendingMarket, fromEpoch + 3 weeks, toEpoch);
+        balanceAfter = address(lender).balance;
+        assertEq(balanceAfter - balanceBefore, 3 ether);
     }
 }
