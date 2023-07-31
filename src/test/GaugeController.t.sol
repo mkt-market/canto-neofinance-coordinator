@@ -312,28 +312,28 @@ contract GaugeControllerTest is Test {
     }
 
     function testVoteCooldown() public {
-        vm.warp((1690836281 + WEEK - 2 days) / WEEK * WEEK);
+        vm.warp(((1690836281 + WEEK - 2 days) / WEEK) * WEEK);
 
         vm.startPrank(gov);
-        gc.add_gauge(gague1);
+        gc.add_gauge(gauge1);
         vm.stopPrank();
 
         vm.startPrank(user1);
         ve.createLock{value: 1 ether}(1 ether);
 
-        gc.vote_for_gauge_weights(gague1, 10000);
-        assertEq(gc.gauge_relative_weight(gague1, block.timestamp), 0);
+        gc.vote_for_gauge_weights(gauge1, 10000);
+        assertEq(gc.gauge_relative_weight(gauge1, block.timestamp), 0);
 
         vm.warp(block.timestamp + 1 weeks);
-        gc.checkpoint_gauge(gague1);
-        assertEq(gc.gauge_relative_weight(gague1, block.timestamp), 1e18);
+        gc.checkpoint_gauge(gauge1);
+        assertEq(gc.gauge_relative_weight(gauge1, block.timestamp), 1e18);
 
-        gc.vote_for_gauge_weights(gague1, 0);
-        gc.checkpoint_gauge(gague1);
-        assertEq(gc.gauge_relative_weight(gague1, block.timestamp), 1e18);
+        gc.vote_for_gauge_weights(gauge1, 0);
+        gc.checkpoint_gauge(gauge1);
+        assertEq(gc.gauge_relative_weight(gauge1, block.timestamp), 1e18);
 
         vm.warp(block.timestamp + 2 weeks);
-        gc.checkpoint_gauge(gague1);
-        assertEq(gc.gauge_relative_weight(gague1, block.timestamp), 0);
+        gc.checkpoint_gauge(gauge1);
+        assertEq(gc.gauge_relative_weight(gauge1, block.timestamp), 0);
     }
 }
