@@ -23,6 +23,8 @@ contract GaugeControllerTest is DSTest, StdAssertions {
     VotingEscrow internal ve;
     GaugeController internal gc;
 
+    uint256 constant WEEK = 7 days;
+
     function setUp() public {
         utils = new Utilities();
         users = utils.createUsers(5);
@@ -164,6 +166,8 @@ contract GaugeControllerTest is DSTest, StdAssertions {
     }
 
     function testVoteCooldown() public {
+        vm.warp((1690836281 + WEEK - 2 days) / WEEK * WEEK);
+
         vm.startPrank(gov);
         gc.add_gauge(gague1);
         vm.stopPrank();
@@ -182,7 +186,7 @@ contract GaugeControllerTest is DSTest, StdAssertions {
         gc.checkpoint_gauge(gague1);
         assertEq(gc.gauge_relative_weight(gague1, block.timestamp), 1e18);
 
-        vm.warp(block.timestamp + 1 weeks);
+        vm.warp(block.timestamp + 2 weeks);
         gc.checkpoint_gauge(gague1);
         assertEq(gc.gauge_relative_weight(gague1, block.timestamp), 0);
     }
