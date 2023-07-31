@@ -19,6 +19,7 @@ contract GaugeControllerTest is Test {
     VotingEscrow internal ve;
     GaugeController internal gc;
 
+    uint256 constant WEEK = 7 days;
     uint256 MONTH = 4 weeks;
 
     function setUp() public {
@@ -308,5 +309,31 @@ contract GaugeControllerTest is Test {
         gc.vote_for_gauge_weights(gauge2, 6000);
 
         assertEq(gc.vote_user_power(user1), 10000);
+    }
+
+    function testVoteCooldown() public {
+        vm.warp(((1690836281 + WEEK - 2 days) / WEEK) * WEEK);
+
+        vm.startPrank(gov);
+        gc.add_gauge(gauge1);
+        vm.stopPrank();
+
+        vm.startPrank(user1);
+        ve.createLock{value: 1 ether}(1 ether);
+
+        gc.vote_for_gauge_weights(gauge1, 10000);
+        assertEq(gc.gauge_relative_weight(gauge1, block.timestamp), 0);
+
+        vm.warp(block.timestamp + 1 weeks);
+        gc.checkpoint_gauge(gauge1);
+        assertEq(gc.gauge_relative_weight(gauge1, block.timestamp), 1e18);
+
+        gc.vote_for_gauge_weights(gauge1, 0);
+        gc.checkpoint_gauge(gauge1);
+        assertEq(gc.gauge_relative_weight(gauge1, block.timestamp), 1e18);
+
+        vm.warp(block.timestamp + 2 weeks);
+        gc.checkpoint_gauge(gauge1);
+        assertEq(gc.gauge_relative_weight(gauge1, block.timestamp), 0);
     }
 }
