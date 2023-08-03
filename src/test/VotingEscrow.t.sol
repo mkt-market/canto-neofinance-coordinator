@@ -282,4 +282,9 @@ contract VotingEscrowTest is Test {
         ve.increaseAmount{ value: 1 }(1);
     }
 
+    function testTryWithdrawNonExistingLock() public {
+        vm.expectRevert("No lock");
+        ve.withdraw();
+    }
+
 }
