@@ -269,4 +269,12 @@ contract VotingEscrowTest is Test {
         ve.increaseAmount(0);
     }
 
+    function testTryCreateIncreaseAmountWithMsgValueNotEqual_value() public {
+        vm.expectRevert("Invalid value");
+        ve.increaseAmount{ value: 0}(1);
+
+        vm.expectRevert("Invalid value");
+        ve.increaseAmount{ value: 1}(2);
+    }
+
 }
