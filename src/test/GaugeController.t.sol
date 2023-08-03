@@ -98,6 +98,17 @@ contract GaugeControllerTest is Test {
         gc.vote_for_gauge_weights(user2, 999999);
     }
 
+    function testMultiVoteWithInvalidWeight() public {
+        vm.startPrank(gov);
+        gc.add_gauge(gauge1);
+        gc.add_gauge(gauge2);
+
+        ve.createLock{value: 1 ether}(1 ether);
+        gc.vote_for_gauge_weights(gauge1, 5000);
+        vm.expectRevert("Used too much power");
+        gc.vote_for_gauge_weights(gauge2, 5001);
+    }
+
     function testVoteLockExpiresTooSoon() public {
         vm.prank(gov);
         gc.add_gauge(user1);
@@ -139,6 +150,7 @@ contract GaugeControllerTest is Test {
         gc.vote_for_gauge_weights(user2, 900);
 
         // check
+        assertApproxEqRel(gc.get_gauge_weight(user1) * 10, gc.get_total_weight(), 0.00001e18);
         assertApproxEqRel(gc.get_gauge_weight(user1) * 10, gc.get_total_weight(), 0.00001e18);
 
         vm.stopPrank();
