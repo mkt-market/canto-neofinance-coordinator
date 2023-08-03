@@ -45,11 +45,21 @@ contract LendingLederTest is DSTest {
             someWeeks + 1
         );
 
+
         vm.expectRevert("Invalid timestamp");
         lendingLeder.claim(
             address(0),
             type(uint256).max,
             someWeeks - 1
+        );
+    }
+
+    function testTryClaimForUserThatNeverDeposited() public {
+        vm.expectRevert("No deposits for this user");
+        lendingLeder.claim(
+            address(6),
+            type(uint256).max,
+            type(uint256).max
         );
     }
 }
