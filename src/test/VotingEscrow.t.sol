@@ -28,4 +28,11 @@ contract VotingEscrowTest is Test {
         (, , , address delegatee) = ve.locked(user1);
         assertEq(delegatee, user1);
     }
+
+    function testRevertDelegateNonExisting() public {
+        // delegate for non-existing lock
+        vm.prank(user1);
+        vm.expectRevert("No lock");
+        ve.delegate(user1);
+    }
 }
