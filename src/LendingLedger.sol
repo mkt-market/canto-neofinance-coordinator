@@ -14,13 +14,13 @@ contract LendingLedger {
     GaugeController public gaugeController;
     mapping(address => bool) public lendingMarketWhitelist;
     /// @dev Lending Market => Lender => Epoch => Balance
-    mapping(address => mapping(address => mapping(uint256 => uint256))) lendingMarketBalances; // cNote balances of users within the lending markets, indexed by epoch
+    mapping(address => mapping(address => mapping(uint256 => uint256))) public lendingMarketBalances; // cNote balances of users within the lending markets, indexed by epoch
     /// @dev Lending Market => Lender => Epoch
-    mapping(address => mapping(address => uint256)) lendingMarketBalancesEpoch; // Epoch when the last update happened
+    mapping(address => mapping(address => uint256)) public lendingMarketBalancesEpoch; // Epoch when the last update happened
     /// @dev Lending Market => Epoch => Balance
-    mapping(address => mapping(uint256 => uint256)) lendingMarketTotalBalance; // Total balance locked within the market, i.e. sum of lendingMarketBalances for all
+    mapping(address => mapping(uint256 => uint256)) public lendingMarketTotalBalance; // Total balance locked within the market, i.e. sum of lendingMarketBalances for all
     /// @dev Lending Market => Epoch
-    mapping(address => uint256) lendingMarketTotalBalanceEpoch; // Epoch when the last update happened
+    mapping(address => uint256) public lendingMarketTotalBalanceEpoch; // Epoch when the last update happened
 
     /// @dev Lending Market => Lender => Epoch
     mapping(address => mapping(address => uint256)) public userClaimedEpoch; // Until which epoch a user has claimed for a particular market (exclusive this value)
@@ -64,6 +64,7 @@ contract LendingLedger {
         if (lastUserUpdateEpoch == 0) {
             // Store epoch of first deposit
             userClaimedEpoch[_market][_lender] = currEpoch;
+            lendingMarketBalancesEpoch[_market][_lender] = currEpoch;
         } else if (lastUserUpdateEpoch < currEpoch) {
             // Fill in potential gaps in the user balances history
             uint256 lastUserBalance = lendingMarketBalances[_market][_lender][lastUserUpdateEpoch];
@@ -83,7 +84,9 @@ contract LendingLedger {
         uint256 currEpoch = (block.timestamp / WEEK) * WEEK;
         uint256 lastMarketUpdateEpoch = lendingMarketTotalBalanceEpoch[_market];
         uint256 updateUntilEpoch = Math.min(currEpoch, _forwardTimestampLimit);
-        if (lastMarketUpdateEpoch > 0 && lastMarketUpdateEpoch < currEpoch) {
+        if (lastMarketUpdateEpoch == 0) {
+            lendingMarketTotalBalanceEpoch[_market] = currEpoch;
+        } else if (lastMarketUpdateEpoch < currEpoch) {
             // Fill in potential gaps in the market total balances history
             uint256 lastMarketBalance = lendingMarketTotalBalance[_market][lastMarketUpdateEpoch];
             for (uint256 i = lastMarketUpdateEpoch; i <= updateUntilEpoch; i += WEEK) {
