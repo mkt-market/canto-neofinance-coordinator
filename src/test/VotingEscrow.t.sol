@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.16;
 
-import {DSTest} from "ds-test/test.sol";
-import {Utilities} from "./utils/Utilities.sol";
-import {console} from "./utils/Console.sol";
-import {Vm} from "forge-std/Vm.sol";
+import "forge-std/Test.sol";
+import "../VotingEscrow.sol";
 
-import {VotingEscrow} from "../VotingEscrow.sol";
-
-contract VotingEscrowTest is DSTest {
+contract VotingEscrowTest is Test {
     VotingEscrow public ve;
 
     address public constant user1 = address(10001);
@@ -32,7 +28,7 @@ contract VotingEscrowTest is DSTest {
 
     function testTryCreateLockWithZeroValue() public {
         vm.expectRevert("Only non zero amount");
-        votingEscrow.createLock(0);
+        ve.createLock(0);
     }
 
     function testSuccessCreateLock() public {
