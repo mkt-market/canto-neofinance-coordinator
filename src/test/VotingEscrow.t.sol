@@ -132,4 +132,12 @@ contract VotingEscrowTest is Test {
         assertEq(delegated, 300);
         assertEq(ve.lockEnd(user1), block.timestamp + ve.LOCKTIME());
     }
+
+    function testRevertWithdrawDelegated() public {
+        // withdraw for delegated lock
+        testSuccessDelegate();
+        vm.prank(user1);
+        vm.expectRevert("Lock not expired");
+        ve.withdraw();
+    }
 }
