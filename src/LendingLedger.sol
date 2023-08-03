@@ -14,11 +14,14 @@ contract LendingLeder {
     GaugeController public gaugeController;
     mapping(address => bool) public lendingMarketWhitelist;
     /// @dev Lending Market => Lender => Epoch => Balance
-    mapping(address => mapping(address => mapping(uint256 => uint256))) lendingMarketBalances; // cNote balances of users within the lending markets, indexed by epoch
+    mapping(address => mapping(address => mapping(uint256 => uint256)))
+        public lendingMarketBalances; // cNote balances of users within the lending markets, indexed by epoch
     /// @dev Lending Market => Lender => Epoch
-    mapping(address => mapping(address => uint256)) lendingMarketBalancesEpoch; // Epoch when the last update happened
+    mapping(address => mapping(address => uint256))
+        public lendingMarketBalancesEpoch; // Epoch when the last update happened
     /// @dev Lending Market => Epoch => Balance
-    mapping(address => mapping(uint256 => uint256)) lendingMarketTotalBalance; // Total balance locked within the market, i.e. sum of lendingMarketBalances for all
+    mapping(address => mapping(uint256 => uint256))
+        public lendingMarketTotalBalance; // Total balance locked within the market, i.e. sum of lendingMarketBalances for all
     /// @dev Lending Market => Epoch
     mapping(address => uint256) lendingMarketTotalBalanceEpoch; // Epoch when the last update happened
 
@@ -29,7 +32,7 @@ contract LendingLeder {
         bool set;
         uint248 amount;
     }
-    mapping(uint256 => RewardInformation) rewardInformation;
+    mapping(uint256 => RewardInformation) public rewardInformation;
 
     /// @notice Check that a provided timestamp is a valid epoch (divisible by WEEK) or infinity
     /// @param _timestamp Timestamp to check
@@ -61,6 +64,7 @@ contract LendingLeder {
         uint256 _forwardTimestampLimit
     ) private {
         uint256 currEpoch = (block.timestamp / WEEK) * WEEK;
+
         uint256 lastUserUpdateEpoch = lendingMarketBalancesEpoch[_market][
             _lender
         ];
