@@ -87,4 +87,13 @@ contract VotingEscrowTest is Test {
         vm.expectRevert("Only delegate to longer lock");
         ve.delegate(user1);
     }
+
+    function testSuccessUnDelegate() public {
+        // successful undelegate
+        testSuccessDelegate();
+        vm.prank(user1);
+        ve.delegate(user1);
+        (, , , address delegatee) = ve.locked(user1);
+        assertEq(delegatee, user1);
+    }
 }
