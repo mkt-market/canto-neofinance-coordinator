@@ -5,7 +5,7 @@ import {VotingEscrow} from "./VotingEscrow.sol";
 import {GaugeController} from "./GaugeController.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
-contract LendingLeder {
+contract LendingLedger {
     // Constants
     uint256 public constant WEEK = 7 days;
 
