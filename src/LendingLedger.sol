@@ -70,8 +70,10 @@ contract LendingLedger {
             for (uint256 i = lastUserUpdateEpoch; i <= updateUntilEpoch; i += WEEK) {
                 lendingMarketBalances[_market][_lender][i] = lastUserBalance;
             }
+            if (updateUntilEpoch > lastUserUpdateEpoch) {
+                lendingMarketBalancesEpoch[_market][_lender] = updateUntilEpoch;
+            }
         }
-        lendingMarketBalancesEpoch[_market][_lender] = updateUntilEpoch;
     }
 
     /// @notice Fill in gaps in the market total balances history (if any exist)
@@ -87,8 +89,11 @@ contract LendingLedger {
             for (uint256 i = lastMarketUpdateEpoch; i <= updateUntilEpoch; i += WEEK) {
                 lendingMarketTotalBalance[_market][i] = lastMarketBalance;
             }
+            if (updateUntilEpoch > lastMarketUpdateEpoch) {
+                // Only update epoch when we actually checkpointed to avoid decreases
+                lendingMarketTotalBalanceEpoch[_market] = updateUntilEpoch;
+            }
         }
-        lendingMarketTotalBalanceEpoch[_market] = updateUntilEpoch;
     }
 
     /// @notice Trigger a checkpoint explicitly.
