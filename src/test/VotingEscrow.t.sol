@@ -264,4 +264,9 @@ contract VotingEscrowTest is Test {
         ve.createLock{ value: 1 }(1);
     }
 
+    function testTryCreateIncreaseAmountWithZeroValue() public {
+        vm.expectRevert("Only non zero amount");
+        ve.increaseAmount(0);
+    }
+
 }
