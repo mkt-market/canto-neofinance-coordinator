@@ -18,8 +18,19 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.
 ///            5) Lock time is fixed to 5 years, every action resets it
 contract VotingEscrow is ReentrancyGuard {
     // Shared Events
-    event Deposit(address indexed provider, uint256 value, uint256 locktime, LockAction indexed action, uint256 ts);
-    event Withdraw(address indexed provider, uint256 value, LockAction indexed action, uint256 ts);
+    event Deposit(
+        address indexed provider,
+        uint256 value,
+        uint256 locktime,
+        LockAction indexed action,
+        uint256 ts
+    );
+    event Withdraw(
+        address indexed provider,
+        uint256 value,
+        LockAction indexed action,
+        uint256 ts
+    );
     event Unlock();
 
     // Voting token
@@ -30,7 +41,7 @@ contract VotingEscrow is ReentrancyGuard {
     // Shared global state
     uint256 public constant WEEK = 7 days;
     uint256 public constant LOCKTIME = 1825 days;
-    uint256 public constant MULTIPLIER = 10**18;
+    uint256 public constant MULTIPLIER = 10 ** 18;
 
     // Lock state
     uint256 public globalEpoch;
@@ -70,7 +81,12 @@ contract VotingEscrow is ReentrancyGuard {
     /// @param _name The name of the voting token
     /// @param _symbol The symbol of the voting token
     constructor(string memory _name, string memory _symbol) {
-        pointHistory[0] = Point({bias: int128(0), slope: int128(0), ts: block.timestamp, blk: block.number});
+        pointHistory[0] = Point({
+            bias: int128(0),
+            slope: int128(0),
+            ts: block.timestamp,
+            blk: block.number
+        });
         name = _name;
         symbol = _symbol;
     }
@@ -91,15 +107,9 @@ contract VotingEscrow is ReentrancyGuard {
     /// @return bias i.e. y
     /// @return slope i.e. linear gradient
     /// @return ts i.e. time point was logged
-    function getLastUserPoint(address _addr)
-        external
-        view
-        returns (
-            int128 bias,
-            int128 slope,
-            uint256 ts
-        )
-    {
+    function getLastUserPoint(
+        address _addr
+    ) external view returns (int128 bias, int128 slope, uint256 ts) {
         uint256 uepoch = userPointEpoch[_addr];
         if (uepoch == 0) {
             return (0, 0, 0);
@@ -127,12 +137,20 @@ contract VotingEscrow is ReentrancyGuard {
             // Calculate slopes and biases
             // Kept at zero when they have to
             if (_oldLocked.end > block.timestamp && _oldLocked.delegated > 0) {
-                userOldPoint.slope = _oldLocked.delegated / int128(int256(LOCKTIME));
-                userOldPoint.bias = userOldPoint.slope * int128(int256(_oldLocked.end - block.timestamp));
+                userOldPoint.slope =
+                    _oldLocked.delegated /
+                    int128(int256(LOCKTIME));
+                userOldPoint.bias =
+                    userOldPoint.slope *
+                    int128(int256(_oldLocked.end - block.timestamp));
             }
             if (_newLocked.end > block.timestamp && _newLocked.delegated > 0) {
-                userNewPoint.slope = _newLocked.delegated / int128(int256(LOCKTIME));
-                userNewPoint.bias = userNewPoint.slope * int128(int256(_newLocked.end - block.timestamp));
+                userNewPoint.slope =
+                    _newLocked.delegated /
+                    int128(int256(LOCKTIME));
+                userNewPoint.bias =
+                    userNewPoint.slope *
+                    int128(int256(_newLocked.end - block.timestamp));
             }
 
             // Moved from bottom final if statement to resolve stack too deep err
@@ -163,7 +181,12 @@ contract VotingEscrow is ReentrancyGuard {
             }
         }
 
-        Point memory lastPoint = Point({bias: 0, slope: 0, ts: block.timestamp, blk: block.number});
+        Point memory lastPoint = Point({
+            bias: 0,
+            slope: 0,
+            ts: block.timestamp,
+            blk: block.number
+        });
         if (epoch > 0) {
             lastPoint = pointHistory[epoch];
         }
@@ -172,10 +195,17 @@ contract VotingEscrow is ReentrancyGuard {
         // initialLastPoint is used for extrapolation to calculate block number
         // (approximately, for *At methods) and save them
         // as we cannot figure that out exactly from inside the contract
-        Point memory initialLastPoint = Point({bias: 0, slope: 0, ts: lastPoint.ts, blk: lastPoint.blk});
+        Point memory initialLastPoint = Point({
+            bias: 0,
+            slope: 0,
+            ts: lastPoint.ts,
+            blk: lastPoint.blk
+        });
         uint256 blockSlope = 0; // dblock/dt
         if (block.timestamp > lastPoint.ts) {
-            blockSlope = (MULTIPLIER * (block.number - lastPoint.blk)) / (block.timestamp - lastPoint.ts);
+            blockSlope =
+                (MULTIPLIER * (block.number - lastPoint.blk)) /
+                (block.timestamp - lastPoint.ts);
         }
         // If last point is already recorded in this block, slope=0
         // But that's ok b/c we know the block in such case
@@ -192,7 +222,8 @@ contract VotingEscrow is ReentrancyGuard {
             } else {
                 dSlope = slopeChanges[iterativeTime];
             }
-            int128 biasDelta = lastPoint.slope * int128(int256((iterativeTime - lastCheckpoint)));
+            int128 biasDelta = lastPoint.slope *
+                int128(int256((iterativeTime - lastCheckpoint)));
             lastPoint.bias = lastPoint.bias - biasDelta;
             lastPoint.slope = lastPoint.slope + dSlope;
             // This can happen
@@ -205,7 +236,10 @@ contract VotingEscrow is ReentrancyGuard {
             }
             lastCheckpoint = iterativeTime;
             lastPoint.ts = iterativeTime;
-            lastPoint.blk = initialLastPoint.blk + (blockSlope * (iterativeTime - initialLastPoint.ts)) / MULTIPLIER;
+            lastPoint.blk =
+                initialLastPoint.blk +
+                (blockSlope * (iterativeTime - initialLastPoint.ts)) /
+                MULTIPLIER;
 
             // when epoch is incremented, we either push here or after slopes updated below
             epoch = epoch + 1;
@@ -223,8 +257,14 @@ contract VotingEscrow is ReentrancyGuard {
         if (_addr != address(0)) {
             // If last point was in this block, the slope change has been applied already
             // But in such case we have 0 slope(s)
-            lastPoint.slope = lastPoint.slope + userNewPoint.slope - userOldPoint.slope;
-            lastPoint.bias = lastPoint.bias + userNewPoint.bias - userOldPoint.bias;
+            lastPoint.slope =
+                lastPoint.slope +
+                userNewPoint.slope -
+                userOldPoint.slope;
+            lastPoint.bias =
+                lastPoint.bias +
+                userNewPoint.bias -
+                userOldPoint.bias;
             if (lastPoint.slope < 0) {
                 lastPoint.slope = 0;
             }
@@ -280,7 +320,13 @@ contract VotingEscrow is ReentrancyGuard {
         locked[msg.sender] = locked_;
         _checkpoint(msg.sender, LockedBalance(0, 0, 0, address(0)), locked_);
 
-        emit Deposit(msg.sender, _value, unlock_time, LockAction.CREATE, block.timestamp);
+        emit Deposit(
+            msg.sender,
+            _value,
+            unlock_time,
+            LockAction.CREATE,
+            block.timestamp
+        );
     }
 
     // See IVotingEscrow for documentation
@@ -317,7 +363,13 @@ contract VotingEscrow is ReentrancyGuard {
             newLocked.delegated += int128(int256(_value));
             locked[delegatee] = newLocked;
             _checkpoint(delegatee, locked_, newLocked);
-            emit Deposit(delegatee, _value, newLocked.end, LockAction.DELEGATE, block.timestamp);
+            emit Deposit(
+                delegatee,
+                _value,
+                newLocked.end,
+                LockAction.DELEGATE,
+                block.timestamp
+            );
         }
         emit Deposit(msg.sender, _value, unlockTime, action, block.timestamp);
     }
@@ -345,7 +397,12 @@ contract VotingEscrow is ReentrancyGuard {
         // Send back deposited tokens
         (bool success, ) = msg.sender.call{value: amountToSend}("");
         require(success, "Failed to send CANTO");
-        emit Withdraw(msg.sender, amountToSend, LockAction.WITHDRAW, block.timestamp);
+        emit Withdraw(
+            msg.sender,
+            amountToSend,
+            LockAction.WITHDRAW,
+            block.timestamp
+        );
     }
 
     /// ~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
@@ -396,10 +453,21 @@ contract VotingEscrow is ReentrancyGuard {
         LockedBalance memory newLocked = _copyLock(_locked);
         if (action == LockAction.DELEGATE) {
             newLocked.delegated += value;
-            emit Deposit(addr, uint256(int256(value)), newLocked.end, action, block.timestamp);
+            emit Deposit(
+                addr,
+                uint256(int256(value)),
+                newLocked.end,
+                action,
+                block.timestamp
+            );
         } else {
             newLocked.delegated -= value;
-            emit Withdraw(addr, uint256(int256(value)), action, block.timestamp);
+            emit Withdraw(
+                addr,
+                uint256(int256(value)),
+                action,
+                block.timestamp
+            );
         }
         locked[addr] = newLocked;
         if (newLocked.amount > 0) {
@@ -409,7 +477,9 @@ contract VotingEscrow is ReentrancyGuard {
     }
 
     // Creates a copy of a lock
-    function _copyLock(LockedBalance memory _locked) internal pure returns (LockedBalance memory) {
+    function _copyLock(
+        LockedBalance memory _locked
+    ) internal pure returns (LockedBalance memory) {
         return
             LockedBalance({
                 amount: _locked.amount,
@@ -428,7 +498,10 @@ contract VotingEscrow is ReentrancyGuard {
     // @dev Uses binarysearch to find the most recent point history preceeding block
     // @param _block Find the most recent point history before this block
     // @param _maxEpoch Do not search pointHistories past this index
-    function _findBlockEpoch(uint256 _block, uint256 _maxEpoch) internal view returns (uint256) {
+    function _findBlockEpoch(
+        uint256 _block,
+        uint256 _maxEpoch
+    ) internal view returns (uint256) {
         // Binary search
         uint256 min = 0;
         uint256 max = _maxEpoch;
@@ -448,7 +521,10 @@ contract VotingEscrow is ReentrancyGuard {
     // @dev Uses binarysearch to find the most recent user point history preceeding block
     // @param _addr User for which to search
     // @param _block Find the most recent point history before this block
-    function _findUserBlockEpoch(address _addr, uint256 _block) internal view returns (uint256) {
+    function _findUserBlockEpoch(
+        address _addr,
+        uint256 _block
+    ) internal view returns (uint256) {
         uint256 min = 0;
         uint256 max = userPointEpoch[_addr];
         for (uint256 i = 0; i < 128; i++) {
@@ -476,7 +552,9 @@ contract VotingEscrow is ReentrancyGuard {
             return 0;
         }
         Point memory lastPoint = userPointHistory[_owner][epoch];
-        lastPoint.bias = lastPoint.bias - (lastPoint.slope * int128(int256(block.timestamp - lastPoint.ts)));
+        lastPoint.bias =
+            lastPoint.bias -
+            (lastPoint.slope * int128(int256(block.timestamp - lastPoint.ts)));
         if (lastPoint.bias < 0) {
             lastPoint.bias = 0;
         }
@@ -484,7 +562,10 @@ contract VotingEscrow is ReentrancyGuard {
     }
 
     // See IVotingEscrow for documentation
-    function balanceOfAt(address _owner, uint256 _blockNumber) public view returns (uint256) {
+    function balanceOfAt(
+        address _owner,
+        uint256 _blockNumber
+    ) public view returns (uint256) {
         require(_blockNumber <= block.number, "Only past block number");
 
         // Get most recent user Point to block
@@ -515,10 +596,14 @@ contract VotingEscrow is ReentrancyGuard {
         // (Deterministically) Estimate the time at which block _blockNumber was mined
         uint256 blockTime = point0.ts;
         if (dBlock != 0) {
-            blockTime = blockTime + ((dTime * (_blockNumber - point0.blk)) / dBlock);
+            blockTime =
+                blockTime +
+                ((dTime * (_blockNumber - point0.blk)) / dBlock);
         }
         // Current Bias = most recent bias - (slope * time since update)
-        upoint.bias = upoint.bias - (upoint.slope * int128(int256(blockTime - upoint.ts)));
+        upoint.bias =
+            upoint.bias -
+            (upoint.slope * int128(int256(blockTime - upoint.ts)));
         if (upoint.bias >= 0) {
             return uint256(uint128(upoint.bias));
         } else {
@@ -530,7 +615,10 @@ contract VotingEscrow is ReentrancyGuard {
     /// @param _point Most recent point before time _t
     /// @param _t Time at which to calculate supply
     /// @return totalSupply at given point in time
-    function _supplyAt(Point memory _point, uint256 _t) internal view returns (uint256) {
+    function _supplyAt(
+        Point memory _point,
+        uint256 _t
+    ) internal view returns (uint256) {
         Point memory lastPoint = _point;
         // Floor the timestamp to weekly interval
         uint256 iterativeTime = _floorToWeek(lastPoint.ts);
@@ -547,7 +635,10 @@ contract VotingEscrow is ReentrancyGuard {
                 dSlope = slopeChanges[iterativeTime];
             }
 
-            lastPoint.bias = lastPoint.bias - (lastPoint.slope * int128(int256(iterativeTime - lastPoint.ts)));
+            lastPoint.bias =
+                lastPoint.bias -
+                (lastPoint.slope *
+                    int128(int256(iterativeTime - lastPoint.ts)));
             if (iterativeTime == _t) {
                 break;
             }
@@ -586,10 +677,14 @@ contract VotingEscrow is ReentrancyGuard {
         if (targetEpoch < epoch) {
             Point memory pointNext = pointHistory[targetEpoch + 1];
             if (point.blk != pointNext.blk) {
-                dTime = ((_blockNumber - point.blk) * (pointNext.ts - point.ts)) / (pointNext.blk - point.blk);
+                dTime =
+                    ((_blockNumber - point.blk) * (pointNext.ts - point.ts)) /
+                    (pointNext.blk - point.blk);
             }
         } else if (point.blk != block.number) {
-            dTime = ((_blockNumber - point.blk) * (block.timestamp - point.ts)) / (block.number - point.blk);
+            dTime =
+                ((_blockNumber - point.blk) * (block.timestamp - point.ts)) /
+                (block.number - point.blk);
         }
         // Now dTime contains info on how far are we beyond point
         return _supplyAt(point, point.ts + dTime);
