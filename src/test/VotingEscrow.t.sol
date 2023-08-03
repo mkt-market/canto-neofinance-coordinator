@@ -251,17 +251,17 @@ contract VotingEscrowTest is Test {
 
     function testTryCreateLockWithMsgValueNotEqual_value() public {
         vm.expectRevert("Invalid value");
-        ve.createLock{ value: 0 }(1);
+        ve.createLock{value: 0}(1);
 
         vm.expectRevert("Invalid value");
-        ve.createLock{ value: 1 }(2);
+        ve.createLock{value: 1}(2);
     }
 
     function testTryCreateLockWithExistingLock() public {
-        ve.createLock{ value: 1 }(1);
+        ve.createLock{value: 1}(1);
 
         vm.expectRevert("Lock exists");
-        ve.createLock{ value: 1 }(1);
+        ve.createLock{value: 1}(1);
     }
 
     function testTryCreateIncreaseAmountWithZeroValue() public {
@@ -271,15 +271,15 @@ contract VotingEscrowTest is Test {
 
     function testTryCreateIncreaseAmountWithMsgValueNotEqual_value() public {
         vm.expectRevert("Invalid value");
-        ve.increaseAmount{ value: 0}(1);
+        ve.increaseAmount{value: 0}(1);
 
         vm.expectRevert("Invalid value");
-        ve.increaseAmount{ value: 1}(2);
+        ve.increaseAmount{value: 1}(2);
     }
 
     function testTryCreateIncreaseAmountWithNonExistingLock() public {
         vm.expectRevert("No lock");
-        ve.increaseAmount{ value: 1 }(1);
+        ve.increaseAmount{value: 1}(1);
     }
 
     function testTryWithdrawNonExistingLock() public {
@@ -288,7 +288,7 @@ contract VotingEscrowTest is Test {
     }
 
     function testTryWithdrawForNonExpiredLock() public {
-        ve.createLock{ value: 1 }(1);
+        ve.createLock{value: 1}(1);
         vm.expectRevert("Lock not expired");
         ve.withdraw();
     }
@@ -311,11 +311,11 @@ contract VotingEscrowTest is Test {
         uint256 charlieAmount = 1e18;
 
         vm.prank(user1);
-        ve.createLock{ value: aliceAmount }(aliceAmount);
+        ve.createLock{value: aliceAmount}(aliceAmount);
         vm.prank(user2);
-        ve.createLock{ value: bobAmount }(bobAmount);
+        ve.createLock{value: bobAmount}(bobAmount);
         vm.prank(user3);
-        ve.createLock{ value: charlieAmount }(charlieAmount);
+        ve.createLock{value: charlieAmount}(charlieAmount);
 
         uint256 initialBalance = ve.totalSupply();
         uint256 decayWeekAprox = initialBalance / (5 * 52);

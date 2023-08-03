@@ -26,37 +26,20 @@ contract LendingLederTest is DSTest {
         uint256 someWeeks = 7 * lendingLeder.WEEK();
 
         vm.expectRevert("Invalid timestamp");
-        lendingLeder.claim(
-            address(0),
-            someWeeks + 1,
-            type(uint256).max
-        );
+        lendingLeder.claim(address(0), someWeeks + 1, type(uint256).max);
 
         vm.expectRevert("Invalid timestamp");
-        lendingLeder.claim(
-            address(0),
-            someWeeks - 1,
-            type(uint256).max
-        );
+        lendingLeder.claim(address(0), someWeeks - 1, type(uint256).max);
     }
 
     function testTryClaimWithInvalidEndEpoch() public {
         uint256 someWeeks = 7 * lendingLeder.WEEK();
 
         vm.expectRevert("Invalid timestamp");
-        lendingLeder.claim(
-            address(0),
-            type(uint256).max,
-            someWeeks + 1
-        );
-
+        lendingLeder.claim(address(0), type(uint256).max, someWeeks + 1);
 
         vm.expectRevert("Invalid timestamp");
-        lendingLeder.claim(
-            address(0),
-            type(uint256).max,
-            someWeeks - 1
-        );
+        lendingLeder.claim(address(0), type(uint256).max, someWeeks - 1);
     }
 
     function testTryClaimForEpochWithoutSetRewards() public {
@@ -78,10 +61,6 @@ contract LendingLederTest is DSTest {
 
         vm.expectRevert("Reward not set yet");
         vm.prank(alice);
-        lendingLeder.claim(
-            market,
-            (block.timestamp % WEEK) * WEEK,
-            WEEK
-        );
+        lendingLeder.claim(market, (block.timestamp % WEEK) * WEEK, WEEK);
     }
 }

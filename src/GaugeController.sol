@@ -14,7 +14,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 contract GaugeController {
     // Constants
     uint256 public constant WEEK = 7 days;
-    uint256 public constant MULTIPLIER = 10 ** 18;
+    uint256 public constant MULTIPLIER = 10**18;
 
     // Events
     event NewGauge(address indexed gauge_address);
@@ -149,10 +149,7 @@ contract GaugeController {
     /// @param _gauge Gauge address
     /// @param _time Relative weight at the specified timestamp in the past or present
     /// @return Value of relative weight normalized to 1e18
-    function _gauge_relative_weight(
-        address _gauge,
-        uint256 _time
-    ) private view returns (uint256) {
+    function _gauge_relative_weight(address _gauge, uint256 _time) private view returns (uint256) {
         uint256 t = (_time / WEEK) * WEEK;
         uint256 total_weight = points_sum[t].bias;
         if (total_weight > 0) {
@@ -169,10 +166,7 @@ contract GaugeController {
     /// @param _gauge Gauge address
     /// @param _time Relative weight at the specified timestamp in the past or present
     /// @return Value of relative weight normalized to 1e18
-    function gauge_relative_weight(
-        address _gauge,
-        uint256 _time
-    ) external view returns (uint256) {
+    function gauge_relative_weight(address _gauge, uint256 _time) external view returns (uint256) {
         return _gauge_relative_weight(_gauge, _time);
     }
 
@@ -182,10 +176,7 @@ contract GaugeController {
     /// @param _gauge Gauge address
     /// @param _time Relative weight at the specified timestamp in the past or present
     /// @return Value of relative weight normalized to 1e18
-    function gauge_relative_weight_write(
-        address _gauge,
-        uint256 _time
-    ) external returns (uint256) {
+    function gauge_relative_weight_write(address _gauge, uint256 _time) external returns (uint256) {
         _get_weight(_gauge);
         _get_sum();
         return _gauge_relative_weight(_gauge, _time);
@@ -210,30 +201,21 @@ contract GaugeController {
     /// @notice Allows governance to overwrite gauge weights
     /// @param _gauge Gauge address
     /// @param _weight New weight
-    function change_gauge_weight(
-        address _gauge,
-        uint256 _weight
-    ) public onlyGovernance {
+    function change_gauge_weight(address _gauge, uint256 _weight) public onlyGovernance {
         _change_gauge_weight(_gauge, _weight);
     }
 
     /// @notice Allocate voting power for changing pool weights
     /// @param _gauge_addr Gauge which `msg.sender` votes for
     /// @param _user_weight Weight for a gauge in bps (units of 0.01%). Minimal is 0.01%. Ignored if 0
-    function vote_for_gauge_weights(
-        address _gauge_addr,
-        uint256 _user_weight
-    ) external {
-        require(
-            _user_weight >= 0 && _user_weight <= 10_000,
-            "Invalid user weight"
-        );
+    function vote_for_gauge_weights(address _gauge_addr, uint256 _user_weight) external {
+        require(_user_weight >= 0 && _user_weight <= 10_000, "Invalid user weight");
         require(isValidGauge[_gauge_addr], "Invalid gauge address");
         VotingEscrow ve = votingEscrow;
         (
             ,
             /*int128 bias*/
-            int128 slope_ /*uint256 ts*/,
+            int128 slope_, /*uint256 ts*/
 
         ) = ve.getLastUserPoint(msg.sender);
         require(slope_ >= 0, "Invalid slope");
@@ -267,19 +249,13 @@ contract GaugeController {
         uint256 old_sum_bias = _get_sum();
         uint256 old_sum_slope = points_sum[next_time].slope;
 
-        points_weight[_gauge_addr][next_time].bias =
-            Math.max(old_weight_bias + new_bias, old_bias) -
-            old_bias;
-        points_sum[next_time].bias =
-            Math.max(old_sum_bias + new_bias, old_sum_bias) -
-            old_bias;
+        points_weight[_gauge_addr][next_time].bias = Math.max(old_weight_bias + new_bias, old_bias) - old_bias;
+        points_sum[next_time].bias = Math.max(old_sum_bias + new_bias, old_sum_bias) - old_bias;
         if (old_slope.end > next_time) {
             points_weight[_gauge_addr][next_time].slope =
                 Math.max(old_weight_slope + new_slope.slope, old_slope.slope) -
                 old_slope.slope;
-            points_sum[next_time].slope =
-                Math.max(old_sum_slope + new_slope.slope, old_slope.slope) -
-                old_slope.slope;
+            points_sum[next_time].slope = Math.max(old_sum_slope + new_slope.slope, old_slope.slope) - old_slope.slope;
         } else {
             points_weight[_gauge_addr][next_time].slope += new_slope.slope;
             points_sum[next_time].slope += new_slope.slope;

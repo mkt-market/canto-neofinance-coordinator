@@ -59,9 +59,7 @@ contract LendingLedger {
     ) private {
         uint256 currEpoch = (block.timestamp / WEEK) * WEEK;
 
-        uint256 lastUserUpdateEpoch = lendingMarketBalancesEpoch[_market][
-            _lender
-        ];
+        uint256 lastUserUpdateEpoch = lendingMarketBalancesEpoch[_market][_lender];
         uint256 updateUntilEpoch = Math.min(currEpoch, _forwardTimestampLimit);
         if (lastUserUpdateEpoch == 0) {
             // Store epoch of first deposit
