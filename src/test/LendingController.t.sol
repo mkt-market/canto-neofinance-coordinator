@@ -17,7 +17,7 @@ contract LendingLedgerTest is Test {
     Utilities internal utils;
     address payable[] internal users;
 
-    LendingLeder ledger;
+    LendingLedger ledger;
     DummyGaugeController controller;
     address goverance;
 
@@ -42,7 +42,7 @@ contract LendingLedgerTest is Test {
 
         controller = new DummyGaugeController();
 
-        ledger = new LendingLeder(address(controller), goverance);
+        ledger = new LendingLedger(address(controller), goverance);
 
         lendingMarket = vm.addr(5201314);
 
