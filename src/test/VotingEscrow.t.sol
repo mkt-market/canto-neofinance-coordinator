@@ -249,4 +249,12 @@ contract VotingEscrowTest is Test {
         assertEq(ve.balanceOf(user1), 0);
     }
 
+    function testTryCreateLockWithMsgValueNotEqual_value() public {
+        vm.expectRevert("Invalid value");
+        ve.createLock{ value: 0 }(1);
+
+        vm.expectRevert("Invalid value");
+        ve.createLock{ value: 1 }(2);
+    }
+
 }
