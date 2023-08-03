@@ -287,4 +287,9 @@ contract VotingEscrowTest is Test {
         ve.withdraw();
     }
 
+    function testTryWithdrawForNonExpiredLock() public {
+        ve.createLock{ value: 1 }(1);
+        vm.expectRevert("Lock not expired");
+        ve.withdraw();
+    }
 }
