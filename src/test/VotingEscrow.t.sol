@@ -44,4 +44,12 @@ contract VotingEscrowTest is Test {
         vm.expectRevert("Already delegated");
         ve.delegate(user1);
     }
+
+    function testRevertDelegateToWithoutLock() public {
+        // delegate to address without lock
+        testSuccessCreateLock();
+        vm.prank(user1);
+        vm.expectRevert("Delegatee has no lock");
+        ve.delegate(user2);
+    }
 }
