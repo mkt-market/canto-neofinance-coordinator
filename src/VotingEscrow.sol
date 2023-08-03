@@ -298,7 +298,7 @@ contract VotingEscrow is ReentrancyGuard {
         LockAction action = LockAction.INCREASE_AMOUNT;
         LockedBalance memory newLocked = _copyLock(locked_);
         newLocked.amount += int128(int256(_value));
-        newLocked.end = block.timestamp + LOCKTIME;
+        newLocked.end = _floorToWeek(block.timestamp + LOCKTIME);
         if (delegatee == msg.sender) {
             // Undelegated lock
             action = LockAction.INCREASE_AMOUNT_AND_DELEGATION;
