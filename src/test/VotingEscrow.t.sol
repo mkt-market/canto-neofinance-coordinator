@@ -257,4 +257,11 @@ contract VotingEscrowTest is Test {
         ve.createLock{ value: 1 }(2);
     }
 
+    function testTryCreateLockWithExistingLock() public {
+        ve.createLock{ value: 1 }(1);
+
+        vm.expectRevert("Lock exists");
+        ve.createLock{ value: 1 }(1);
+    }
+
 }
