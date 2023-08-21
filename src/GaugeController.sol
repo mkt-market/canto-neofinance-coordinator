@@ -128,7 +128,7 @@ contract GaugeController {
     function remove_gauge(address _gauge) external onlyGovernance {
         require(isValidGauge[_gauge], "Invalid gauge address");
         isValidGauge[_gauge] = false;
-        _change_gauge_weight(_gauge, 0);
+        _remove_gauge_weight(_gauge);
         emit GaugeRemoved(_gauge);
     }
 
@@ -199,11 +199,35 @@ contract GaugeController {
         time_sum = next_time;
     }
 
-    /// @notice Allows governance to overwrite gauge weights
+    function _remove_gauge_weight(address _gauge) internal {
+        uint256 old_gauge_weight = _get_weight(_gauge);
+        uint256 old_sum = _get_sum();
+        uint256 next_time = ((block.timestamp + WEEK) / WEEK) * WEEK;
+
+        uint256 old_slope = points_weight[_gauge][next_time].slope;
+
+        points_weight[_gauge][next_time].bias = 0;
+        points_weight[_gauge][next_time].slope = 0;
+
+        uint256 new_sum = old_sum - old_gauge_weight;
+        points_sum[next_time].bias = new_sum;
+        points_sum[next_time].slope -= old_slope;
+        // We have to cancel all slope changes (gauge specific and global) that were caused by this gauge
+        // This is not very efficient, but does the job for a governance function that is called very rarely
+        for (uint i; i < 263; ++i) {
+            uint256 time_to_check = next_time + i * WEEK;
+            uint256 gauge_weight_change = changes_weight[_gauge][time_to_check];
+            if (gauge_weight_change > 0) {
+                changes_weight[_gauge][time_to_check] = 0;
+                changes_sum[time_to_check] -= gauge_weight_change;
+            }
+        }
+    }
+
+    /// @notice Allows governance to remove gauge weights
     /// @param _gauge Gauge address
-    /// @param _weight New weight
-    function change_gauge_weight(address _gauge, uint256 _weight) public onlyGovernance {
-        _change_gauge_weight(_gauge, _weight);
+    function remove_gauge_weight(address _gauge) public onlyGovernance {
+        _remove_gauge_weight(_gauge);
     }
 
     /// @notice Allocate voting power for changing pool weights
@@ -263,8 +287,17 @@ contract GaugeController {
         }
         if (old_slope.end > block.timestamp) {
             // Cancel old slope changes if they still didn't happen
-            changes_weight[_gauge_addr][old_slope.end] -= old_slope.slope;
-            changes_sum[old_slope.end] -= old_slope.slope;
+            // Because of manual slope changes when gauge is removed, an underflow is possible here and we have to check for that.
+            if (changes_weight[_gauge_addr][old_slope.end] >= old_slope.slope) {
+                changes_weight[_gauge_addr][old_slope.end] -= old_slope.slope;
+            } else {
+                changes_weight[_gauge_addr][old_slope.end] = 0;
+            }
+            if (changes_sum[old_slope.end] >= old_slope.slope) {
+                changes_sum[old_slope.end] -= old_slope.slope;
+            } else {
+                changes_sum[old_slope.end] = 0;
+            }
         }
         // Add slope changes for new slopes
         changes_weight[_gauge_addr][new_slope.end] += new_slope.slope;
