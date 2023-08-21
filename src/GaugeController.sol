@@ -211,7 +211,7 @@ contract GaugeController {
     /// @param _user_weight Weight for a gauge in bps (units of 0.01%). Minimal is 0.01%. Ignored if 0
     function vote_for_gauge_weights(address _gauge_addr, uint256 _user_weight) external {
         require(_user_weight >= 0 && _user_weight <= 10_000, "Invalid user weight");
-        require(isValidGauge[_gauge_addr], "Invalid gauge address");
+        require(_user_weight == 0 || isValidGauge[_gauge_addr], "Can only vote 0 on non-gauges"); // We allow withdrawing voting power from invalid (removed) gauges
         VotingEscrow ve = votingEscrow;
         (
             ,
