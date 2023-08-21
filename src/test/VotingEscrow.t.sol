@@ -142,6 +142,17 @@ contract VotingEscrowTest is Test {
         assertEq(ve.lockEnd(user1), _floorToWeek(block.timestamp + ve.LOCKTIME()));
     }
 
+    function testSuccessUndelegateLongerLock() public {
+        testSuccessDelegate();
+        uint256 preBalance = address(user1).balance;
+        vm.warp(block.timestamp + 5 * 365 days);
+        vm.startPrank(user1);
+        ve.delegate(user1);
+        ve.withdraw();
+        vm.stopPrank();
+        assertEq(address(user1).balance - preBalance, LOCK_AMT);
+    }
+
     function testRevertWithdrawDelegated() public {
         // withdraw for delegated lock
         testSuccessDelegate();

@@ -380,7 +380,7 @@ contract VotingEscrow is ReentrancyGuard {
             locked[msg.sender] = locked_;
         }
         require(toLocked.amount > 0, "Delegatee has no lock");
-        require(toLocked.end > block.timestamp, "Delegatee lock expired");
+        require(_addr == msg.sender || toLocked.end > block.timestamp, "Delegatee lock expired");
         require(toLocked.end >= fromLocked.end, "Only delegate to longer lock");
         _delegate(delegatee, fromLocked, value, LockAction.UNDELEGATE);
         _delegate(_addr, toLocked, value, LockAction.DELEGATE);
