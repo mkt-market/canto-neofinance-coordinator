@@ -118,6 +118,7 @@ contract GaugeController {
     function add_gauge(address _gauge) external onlyGovernance {
         require(!isValidGauge[_gauge], "Gauge already exists");
         isValidGauge[_gauge] = true;
+        _change_gauge_weight(_gauge, 0);
         emit NewGauge(_gauge);
     }
 
