@@ -15,13 +15,14 @@ contract LendingLedger {
     mapping(address => bool) public lendingMarketWhitelist;
     /// @dev Lending Market => Lender => Epoch => Balance
     mapping(address => mapping(address => mapping(uint256 => uint256))) public lendingMarketBalances; // cNote balances of users within the lending markets, indexed by epoch
+    mapping(address => mapping(address => mapping(uint256 => uint256))) public lendingMarketTimeWeightedBalances; // Time-weighted cNote balances of users within the lending markets, indexed by epoch
     /// @dev Lending Market => Lender => Epoch
     mapping(address => mapping(address => uint256)) public lendingMarketBalancesEpoch; // Epoch when the last update happened
     /// @dev Lending Market => Epoch => Balance
     mapping(address => mapping(uint256 => uint256)) public lendingMarketTotalBalance; // Total balance locked within the market, i.e. sum of lendingMarketBalances for all
+    mapping(address => mapping(uint256 => uint256)) public lendingMarketTotalTimeWeightedBalance;
     /// @dev Lending Market => Epoch
     mapping(address => uint256) public lendingMarketTotalBalanceEpoch; // Epoch when the last update happened
-
     /// @dev Lending Market => Lender => Epoch
     mapping(address => mapping(address => uint256)) public userClaimedEpoch; // Until which epoch a user has claimed for a particular market (exclusive this value)
 
@@ -68,8 +69,9 @@ contract LendingLedger {
         } else if (lastUserUpdateEpoch < currEpoch) {
             // Fill in potential gaps in the user balances history
             uint256 lastUserBalance = lendingMarketBalances[_market][_lender][lastUserUpdateEpoch];
-            for (uint256 i = lastUserUpdateEpoch; i <= updateUntilEpoch; i += WEEK) {
+            for (uint256 i = lastUserUpdateEpoch + WEEK; i <= updateUntilEpoch; i += WEEK) {
                 lendingMarketBalances[_market][_lender][i] = lastUserBalance;
+                lendingMarketTimeWeightedBalances[_market][_lender][i] = lastUserBalance * WEEK;
             }
             if (updateUntilEpoch > lastUserUpdateEpoch) {
                 lendingMarketBalancesEpoch[_market][_lender] = updateUntilEpoch;
@@ -89,8 +91,9 @@ contract LendingLedger {
         } else if (lastMarketUpdateEpoch < currEpoch) {
             // Fill in potential gaps in the market total balances history
             uint256 lastMarketBalance = lendingMarketTotalBalance[_market][lastMarketUpdateEpoch];
-            for (uint256 i = lastMarketUpdateEpoch; i <= updateUntilEpoch; i += WEEK) {
+            for (uint256 i = lastMarketUpdateEpoch + WEEK; i <= updateUntilEpoch; i += WEEK) {
                 lendingMarketTotalBalance[_market][i] = lastMarketBalance;
+                lendingMarketTotalTimeWeightedBalance[_market][i] = lastMarketBalance * WEEK;
             }
             if (updateUntilEpoch > lastMarketUpdateEpoch) {
                 // Only update epoch when we actually checkpointed to avoid decreases
@@ -132,14 +135,21 @@ contract LendingLedger {
 
         _checkpoint_lender(lendingMarket, _lender, type(uint256).max);
         uint256 currEpoch = (block.timestamp / WEEK) * WEEK;
+        uint256 nextEpoch = currEpoch + WEEK;
         int256 updatedLenderBalance = int256(lendingMarketBalances[lendingMarket][_lender][currEpoch]) + _delta;
+        int256 updatedTimeWeightedBalance = int256(lendingMarketTimeWeightedBalances[lendingMarket][_lender][currEpoch]) + _delta * int256(nextEpoch - block.timestamp);
         require(updatedLenderBalance >= 0, "Lender balance underflow"); // Sanity check performed here, but the market should ensure that this never happens
+        require(updatedTimeWeightedBalance >= 0, "Time weighted balance underflow");
         lendingMarketBalances[lendingMarket][_lender][currEpoch] = uint256(updatedLenderBalance);
+        lendingMarketTimeWeightedBalances[lendingMarket][_lender][currEpoch] = uint256(updatedTimeWeightedBalance);
 
         _checkpoint_market(lendingMarket, type(uint256).max);
         int256 updatedMarketBalance = int256(lendingMarketTotalBalance[lendingMarket][currEpoch]) + _delta;
+        int256 updatedMarketTimeWeightedBalance = int256(lendingMarketTotalTimeWeightedBalance[lendingMarket][currEpoch]) + _delta * int256(nextEpoch - block.timestamp);
         require(updatedMarketBalance >= 0, "Market balance underflow"); // Sanity check performed here, but the market should ensure that this never happens
+        require(updatedMarketTimeWeightedBalance >= 0, "Time weighted balance underflow");
         lendingMarketTotalBalance[lendingMarket][currEpoch] = uint256(updatedMarketBalance);
+        lendingMarketTotalTimeWeightedBalance[lendingMarket][currEpoch] = uint256(updatedMarketTimeWeightedBalance);
     }
 
     /// @notice Claim the CANTO for a given market. Can only be performed for prior (i.e. finished) epochs, not the current one
@@ -166,12 +176,12 @@ contract LendingLedger {
         if (claimEnd >= claimStart) {
             // This ensures that we only set userClaimedEpoch when a claim actually happened
             for (uint256 i = claimStart; i <= claimEnd; i += WEEK) {
-                uint256 userBalance = lendingMarketBalances[_market][lender][i];
-                uint256 marketBalance = lendingMarketTotalBalance[_market][i];
+                uint256 userBalanceWeighted = lendingMarketTimeWeightedBalances[_market][lender][i];
+                uint256 marketBalanceWeighted = lendingMarketTotalTimeWeightedBalance[_market][i];
                 RewardInformation memory ri = rewardInformation[i];
                 require(ri.set, "Reward not set yet"); // Can only claim for epochs where rewards are set, even if it is set to 0
                 uint256 marketWeight = gaugeController.gauge_relative_weight_write(_market, i); // Normalized to 1e18
-                cantoToSend += (marketWeight * userBalance * ri.amount) / (1e18 * marketBalance); // (marketWeight / 1e18) * (userBalance / marketBalance) * ri.amount;
+                cantoToSend += (marketWeight * userBalanceWeighted * ri.amount) / (1e18 * marketBalanceWeighted); // (marketWeight / 1e18) * (userBalance / marketBalance) * ri.amount;
             }
             userClaimedEpoch[_market][lender] = claimEnd + WEEK;
         }
