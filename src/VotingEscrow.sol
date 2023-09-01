@@ -11,11 +11,10 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.
 ///         FIAT DAO (AGPL) - https://github.com/code-423n4/2022-08-fiatdao/blob/main/contracts/VotingEscrow.sol
 ///         mkt.market (AGPL) - This version
 /// @notice Plain Curve VotingEscrow mechanics with following adjustments:
-///            1) Delegation of lock and voting power
-///            2) Reduced pointHistory array size and, as a result, lifetime of the contract
-///            3) Removed public deposit_for and Aragon compatibility (no use case)
-///            4) Use native token (CANTO) instead of an ERC20 token as the underlying asset
-///            5) Lock time is fixed to 5 years, every action resets it
+///            1) Reduced pointHistory array size and, as a result, lifetime of the contract
+///            2) Removed public deposit_for and Aragon compatibility (no use case)
+///            3) Use native token (CANTO) instead of an ERC20 token as the underlying asset
+///            4) Lock time is fixed to 5 years, every action resets it
 contract VotingEscrow is ReentrancyGuard {
     // Shared Events
     event Deposit(address indexed provider, uint256 value, uint256 locktime, LockAction indexed action, uint256 ts);
@@ -346,66 +345,6 @@ contract VotingEscrow is ReentrancyGuard {
         (bool success, ) = msg.sender.call{value: amountToSend}("");
         require(success, "Failed to send CANTO");
         emit Withdraw(msg.sender, amountToSend, LockAction.WITHDRAW, block.timestamp);
-    }
-
-    /// ~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
-    ///         DELEGATION         ///
-    /// ~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
-
-    // See IVotingEscrow for documentation
-    function delegate(address _addr) external nonReentrant {
-        LockedBalance memory locked_ = locked[msg.sender];
-        // Validate inputs
-        require(locked_.amount > 0, "No lock");
-        require(locked_.delegatee != _addr, "Already delegated");
-        // Update locks
-        int128 value = locked_.amount;
-        address delegatee = locked_.delegatee;
-        LockedBalance memory fromLocked;
-        LockedBalance memory toLocked;
-        locked_.delegatee = _addr;
-        if (delegatee == msg.sender) {
-            // Delegate
-            fromLocked = locked_;
-            toLocked = locked[_addr];
-        } else if (_addr == msg.sender) {
-            // Undelegate
-            fromLocked = locked[delegatee];
-            toLocked = locked_;
-        } else {
-            // Re-delegate
-            fromLocked = locked[delegatee];
-            toLocked = locked[_addr];
-            // Update owner lock if not involved in delegation
-            locked[msg.sender] = locked_;
-        }
-        require(toLocked.amount > 0, "Delegatee has no lock");
-        require(_addr == msg.sender || toLocked.end > block.timestamp, "Delegatee lock expired");
-        require(toLocked.end >= fromLocked.end, "Only delegate to longer lock");
-        _delegate(delegatee, fromLocked, value, LockAction.UNDELEGATE);
-        _delegate(_addr, toLocked, value, LockAction.DELEGATE);
-    }
-
-    // Delegates from/to lock and voting power
-    function _delegate(
-        address addr,
-        LockedBalance memory _locked,
-        int128 value,
-        LockAction action
-    ) internal {
-        LockedBalance memory newLocked = _copyLock(_locked);
-        if (action == LockAction.DELEGATE) {
-            newLocked.delegated += value;
-            emit Deposit(addr, uint256(int256(value)), newLocked.end, action, block.timestamp);
-        } else {
-            newLocked.delegated -= value;
-            emit Withdraw(addr, uint256(int256(value)), action, block.timestamp);
-        }
-        locked[addr] = newLocked;
-        if (newLocked.amount > 0) {
-            // Only if lock (from lock) hasn't been withdrawn/quitted
-            _checkpoint(addr, _locked, newLocked);
-        }
     }
 
     // Creates a copy of a lock
