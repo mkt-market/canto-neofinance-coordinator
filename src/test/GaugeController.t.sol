@@ -168,6 +168,23 @@ contract GaugeControllerTest is Test {
         assertEq((gc.get_total_weight() * 5000) / 10000, gc.get_gauge_weight(gauge1));
     }
 
+    function testVoteGaugeWeightChangeVote() public {
+        vm.startPrank(gov);
+        gc.add_gauge(gauge1);
+        gc.add_gauge(gauge2);
+        vm.stopPrank();
+
+        vm.startPrank(user1);
+        ve.createLock{value: 1 ether}(1 ether);
+        uint nextEpoch = (block.timestamp + WEEK) / WEEK * WEEK;
+        gc.vote_for_gauge_weights(gauge1, 10000); // vote 100% for gauge1
+        vm.warp(nextEpoch - 1);
+        gc.vote_for_gauge_weights(gauge1, 0); // remove vote for gauge1
+        gc.vote_for_gauge_weights(gauge2, 10000); // vote 100% for gauge2
+        console.logUint(gc.gauge_relative_weight_write(gauge1, nextEpoch));
+        console.logUint(gc.gauge_relative_weight_write(gauge2, nextEpoch));
+    }
+
     function testVoteDifferentTime() public {
         vm.startPrank(gov);
         gc.add_gauge(gauge1);
