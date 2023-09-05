@@ -3,7 +3,7 @@ pragma solidity >=0.8.0;
 
 import {Test} from "forge-std/Test.sol";
 import {Utilities} from "./utils/Utilities.sol";
-import {console} from "./utils/Console.sol";
+// import {console} from "./utils/Console.sol";
 
 import "../LendingLedger.sol";
 
@@ -379,5 +379,42 @@ contract LendingLedgerTest is Test {
         vm.expectRevert("Reward not set yet");
         vm.prank(alice);
         ledger.claim(market, fromEpoch, toEpoch);
+    }
+
+    function testTimeWeightedClaiming() public {
+        whiteListMarket();
+        int256 delta = 1.1 ether;
+
+        vm.prank(goverance);
+        ledger.setRewards(0, WEEK*10, amountPerEpoch);
+        vm.startPrank(lendingMarket);
+        // users[2] deposits at beginning of epoch
+        vm.warp(WEEK * 4);
+        ledger.sync_ledger(users[2], delta);
+        // lender deposits at 23:59 (week 4)
+        vm.warp((WEEK * 5) - 1);
+
+        ledger.sync_ledger(lender, delta);
+        vm.stopPrank();
+
+        // airdrop ledger enough token balance for user to claim
+        payable(ledger).transfer(1000 ether);
+        // withdraw at 00:00 (week 5)
+        vm.warp(WEEK * 5);
+        vm.prank(lendingMarket);
+        ledger.sync_ledger(lender, delta * (-1));
+
+        uint256 balanceBefore = address(lender).balance;
+        vm.prank(lender);
+        ledger.claim(lendingMarket, 0, type(uint256).max);
+        uint256 balanceAfter = address(lender).balance;
+        // Lender should receive rewards for 1 second
+        assertEq(balanceAfter - balanceBefore, 1 * 1 ether * 1.1 ether / (1.1 ether * WEEK + 1.1 ether));
+        uint256 balanceBefore2 = address(users[2]).balance;
+        vm.prank(users[2]);
+        ledger.claim(lendingMarket, 0, type(uint256).max);
+        uint256 balanceAfter2 = address(users[2]).balance;
+        // User2 should receive rewards for 1 week
+        assertEq(balanceAfter2 - balanceBefore2, WEEK * 1 ether * 1.1 ether / (1.1 ether * WEEK + 1.1 ether));
     }
 }
