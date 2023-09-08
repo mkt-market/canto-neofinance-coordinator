@@ -2,11 +2,14 @@
 pragma solidity >=0.8.0;
 
 import "forge-std/Script.sol";
-// import "../src/Contract.sol";
+import "../src/VotingEscrow.sol";
+import "../src/LendingLedger.sol";
+import "../src/GaugeController.sol";
 
 contract DeploymentScript is Script {
-    // https://docs.canto.io/evm-development/contract-addresses
-    address constant NOTE = address(0x4e71A2E537B7f9D9413D3991D37958c0b5e1e503);
+    string name = "Vote-Escrowed CANTO";
+    string symbol = "veCANTO";
+    address governance = address(0x169F9dFeBdA65952418BEf58cEe6e79fA3d07BdB); // TODO
 
     function setUp() public {}
 
@@ -14,7 +17,9 @@ contract DeploymentScript is Script {
         string memory seedPhrase = vm.readFile(".secret");
         uint256 privateKey = vm.deriveKey(seedPhrase, 0);
         vm.startBroadcast(privateKey);
-        // address contractToDeploy = new Contract();
+        VotingEscrow votingEscrow = new VotingEscrow(name, symbol);
+        GaugeController gaugeController = new GaugeController(address(votingEscrow), governance);
+        LendingLedger lendingLedger = new LendingLedger(address(gaugeController), governance);
         vm.stopBroadcast();
     }
 }
