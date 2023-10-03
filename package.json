@@ -1,12 +1,12 @@
 {
-  "name": "veRWA-protocol",
+  "name": "neofinance-coordinator",
   "author": "mkt.market",
   "version": "1.0.0",
-  "description": "Voting Escrow for Canto RWA",
-  "homepage": "https://github.com/mkt-market/canto-verwa-protocol#readme",
+  "description": "Voting Escrow for Canto Neofinance",
+  "homepage": "https://github.com/mkt-market/canto-neofinance-coordinator#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mkt-market/canto-verwa-protocol.git"
+    "url": "git+https://github.com/mkt-market/canto-neofinance-coordinator.git"
   },
   "scripts": {
     "prettier": "prettier --write 'src/**/*.sol'",

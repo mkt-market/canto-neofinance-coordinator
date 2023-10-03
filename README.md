@@ -1,4 +1,4 @@
-# veRWA
+# NeoFinance Coordinator
 
 The contracts implement a voting-escrow incentivization model for Canto RWA (Real World Assets) similar to [veCRV](https://curve.readthedocs.io/dao-vecrv.html) with its [liquidity gauge](https://curve.readthedocs.io/dao-gauges.html). Users can lock up CANTO (for five years) in the `VotingEscrow` contract to get veCANTO. They can then vote within `GaugeController` for different lending markets that are white-listed by governance. Users that provide liquidity within these lending markets can claim CANTO (that is provided by CANTO governance) from `LendingLedger` according to their share.
 
@@ -12,7 +12,7 @@ For instance, there might be lending markets X, Y, and Z where Alice, Bob, and C
 The used `VotingEscrow` implementation is a fork of the FIAT DAO implementation, which is itself a fork / solidity port of Curve's original implementation. A few modifications were made to the FIAT DAO implementation, for instance support for underlying native tokens instead of ERC20 and a fixed lock time (of 5 years) that is reset with every action.
 
 ## `GaugeController`
-The `GaugeController` contract is a Solidity port of Curve's [`GaugeController.vy`](https://github.com/curvefi/curve-dao-contracts/blob/master/contracts/GaugeController.vy). Gauge types were removed (there is only one type for veRWA), resulting in a few other code changes. Moreover, the whitelisting of gauges (lending markets) is performed differently than in the original gauge implementation.
+The `GaugeController` contract is a Solidity port of Curve's [`GaugeController.vy`](https://github.com/curvefi/curve-dao-contracts/blob/master/contracts/GaugeController.vy). Gauge types were removed (there is only one type for Neofinance Coordinator), resulting in a few other code changes. Moreover, the whitelisting of gauges (lending markets) is performed differently than in the original gauge implementation.
 
 The controller allows users to vote for gauge weights, i.e. how much of one epoch's CANTO is allocated to one gauge. The controller then enables to query the relative weights for all the gauges at any time in the past.
 
