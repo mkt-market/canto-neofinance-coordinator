@@ -229,7 +229,7 @@ contract LendingLedger {
         uint256 _amountPerEpoch
     ) external is_valid_epoch(_fromEpoch) is_valid_epoch(_toEpoch) {
         uint256 currEpoch = (block.timestamp / WEEK) * WEEK;
-        require(_fromEpoch > currEpoch, "Can't set rewards for past epochs");
+        require(_fromEpoch > currEpoch, "Cannot set rewards for past epochs");
         uint256 numWeeks = (_toEpoch - _fromEpoch) / WEEK + 1;
         SafeERC20.safeTransferFrom(IERC20(_incentiveToken), msg.sender, address(this), _amountPerEpoch * numWeeks);
         for (uint256 i = _fromEpoch; i <= _toEpoch; i += WEEK) {
