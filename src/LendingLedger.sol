@@ -4,6 +4,7 @@ pragma solidity ^0.8.16;
 import {VotingEscrow} from "./VotingEscrow.sol";
 import {GaugeController} from "./GaugeController.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract LendingLedger {
     // Constants
@@ -25,12 +26,18 @@ contract LendingLedger {
     mapping(address => uint256) public lendingMarketTotalBalanceEpoch; // Epoch when the last update happened
     /// @dev Lending Market => Lender => Epoch
     mapping(address => mapping(address => uint256)) public userClaimedEpoch; // Until which epoch a user has claimed for a particular market (exclusive this value)
+    /// @dev Lending Market => Token => Epoch => Rewards
+    mapping(address => mapping(address => mapping(uint256 => uint256))) public secondaryRewards;
+    /// @dev Lending Market => Token => Epoch => User => Claimed
+    mapping(address => mapping(address => mapping(uint256 => mapping(address => bool)))) public secondaryRewardsClaimed;
 
     struct RewardInformation {
         bool set;
         uint248 amount;
     }
     mapping(uint256 => RewardInformation) public rewardInformation;
+
+    event SecondaryRewardsSet(address indexed market, address indexed token, uint256 fromEpoch, uint256 toEpoch, uint256 amount);
 
     /// @notice Check that a provided timestamp is a valid epoch (divisible by WEEK) or infinity
     /// @param _timestamp Timestamp to check
@@ -206,6 +213,55 @@ contract LendingLedger {
             ri.set = true;
             ri.amount = _amountPerEpoch;
         }
+    }
+
+    /// @notice Allows anyone to add additional ERC20 rewards
+    /// @param _lendingMarket Address of the lending market
+    /// @param _incentiveToken Address of the ERC20 token that will be distributed
+    /// @param _fromEpoch From which epoch (provided as timestamp) to set the rewards from
+    /// @param _toEpoch Until which epoch (provided as timestamp) to set the rewards to
+    /// @param _amountPerEpoch The amount per epoch
+    function setSecondaryRewards(
+        address _lendingMarket,
+        address _incentiveToken,
+        uint256 _fromEpoch,
+        uint256 _toEpoch,
+        uint256 _amountPerEpoch
+    ) external is_valid_epoch(_fromEpoch) is_valid_epoch(_toEpoch) {
+        uint256 currEpoch = (block.timestamp / WEEK) * WEEK;
+        require(_fromEpoch > currEpoch, "Cannot set rewards for past epochs");
+        uint256 numWeeks = (_toEpoch - _fromEpoch) / WEEK + 1;
+        SafeERC20.safeTransferFrom(IERC20(_incentiveToken), msg.sender, address(this), _amountPerEpoch * numWeeks);
+        for (uint256 i = _fromEpoch; i <= _toEpoch; i += WEEK) {
+            // We increase the amount to support multiple calls (potentially even from different users)
+            secondaryRewards[_lendingMarket][_incentiveToken][i] += _amountPerEpoch;
+        }
+        emit SecondaryRewardsSet(_lendingMarket, _incentiveToken, _fromEpoch, _toEpoch, _amountPerEpoch);
+    }
+
+    /// @notice Called by lenders to claim secondary rewards
+    /// @param _lendingMarket Address of the lending market
+    /// @param _incentiveToken Address of the incentive token to claim for
+    /// @param _fromEpoch From which epoch (provided as timestamp) to claim
+    /// @param _toEpoch Until which epoch (provided as timestamp) to claim
+    function claimSecondaryRewards(
+        address _lendingMarket,
+        address _incentiveToken,
+        uint256 _fromEpoch,
+        uint256 _toEpoch
+    ) external is_valid_epoch(_fromEpoch) is_valid_epoch(_toEpoch) {
+        uint256 currEpoch = (block.timestamp / WEEK) * WEEK;
+        require (_toEpoch < currEpoch - WEEK, "Can only claim for the past");
+        uint256 rewardsToSend; // Will be in decimals of token
+        for (uint256 i = _fromEpoch; i <= _toEpoch; i += WEEK) {
+            require(!secondaryRewardsClaimed[_lendingMarket][_incentiveToken][i][msg.sender], "Already claimed");
+            uint256 secondaryRewardsForWeek = secondaryRewards[_lendingMarket][_incentiveToken][i];
+            uint256 userBalanceWeighted = lendingMarketTimeWeightedBalances[_lendingMarket][msg.sender][i];
+            uint256 marketBalanceWeighted = lendingMarketTotalTimeWeightedBalance[_lendingMarket][i];
+            rewardsToSend += (secondaryRewardsForWeek * userBalanceWeighted) / (marketBalanceWeighted); // tokDec + 18 - 18 -> tokDec decimals
+            secondaryRewardsClaimed[_lendingMarket][_incentiveToken][i][msg.sender] = true;
+        }
+        SafeERC20.safeTransfer(IERC20(_incentiveToken), msg.sender, rewardsToSend);
     }
 
     /// @notice Used by governance to whitelist a lending market
