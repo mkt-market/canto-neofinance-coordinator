@@ -465,6 +465,40 @@ contract VotingEscrow is ReentrancyGuard {
         }
     }
 
+    // See IVotingEscrow for documentation
+    function totalSupply() public view returns (uint256) {
+        uint256 epoch_ = globalEpoch;
+        Point memory lastPoint = pointHistory[epoch_];
+        return _supplyAt(lastPoint, block.timestamp);
+    }
+
+    // See IVotingEscrow for documentation
+    function totalSupplyAt(uint256 _blockNumber) public view returns (uint256) {
+        require(_blockNumber <= block.number, "Only past block number");
+
+        uint256 epoch = globalEpoch;
+        uint256 targetEpoch = _findBlockEpoch(_blockNumber, epoch);
+
+        Point memory point = pointHistory[targetEpoch];
+
+        // If point.blk > _blockNumber that means we got the initial epoch & contract did not yet exist
+        if (point.blk > _blockNumber) {
+            return 0;
+        }
+
+        uint256 dTime = 0;
+        if (targetEpoch < epoch) {
+            Point memory pointNext = pointHistory[targetEpoch + 1];
+            if (point.blk != pointNext.blk) {
+                dTime = ((_blockNumber - point.blk) * (pointNext.ts - point.ts)) / (pointNext.blk - point.blk);
+            }
+        } else if (point.blk != block.number) {
+            dTime = ((_blockNumber - point.blk) * (block.timestamp - point.ts)) / (block.number - point.blk);
+        }
+        // Now dTime contains info on how far are we beyond point
+        return _supplyAt(point, point.ts + dTime);
+    }
+
     /// @notice Calculate total supply of voting power at a given time _t
     /// @param _point Most recent point before time _t
     /// @param _t Time at which to calculate supply
@@ -498,39 +532,5 @@ contract VotingEscrow is ReentrancyGuard {
             lastPoint.bias = 0;
         }
         return uint256(uint128(lastPoint.bias));
-    }
-
-    // See IVotingEscrow for documentation
-    function totalSupply() public view returns (uint256) {
-        uint256 epoch_ = globalEpoch;
-        Point memory lastPoint = pointHistory[epoch_];
-        return _supplyAt(lastPoint, block.timestamp);
-    }
-
-    // See IVotingEscrow for documentation
-    function totalSupplyAt(uint256 _blockNumber) public view returns (uint256) {
-        require(_blockNumber <= block.number, "Only past block number");
-
-        uint256 epoch = globalEpoch;
-        uint256 targetEpoch = _findBlockEpoch(_blockNumber, epoch);
-
-        Point memory point = pointHistory[targetEpoch];
-
-        // If point.blk > _blockNumber that means we got the initial epoch & contract did not yet exist
-        if (point.blk > _blockNumber) {
-            return 0;
-        }
-
-        uint256 dTime = 0;
-        if (targetEpoch < epoch) {
-            Point memory pointNext = pointHistory[targetEpoch + 1];
-            if (point.blk != pointNext.blk) {
-                dTime = ((_blockNumber - point.blk) * (pointNext.ts - point.ts)) / (pointNext.blk - point.blk);
-            }
-        } else if (point.blk != block.number) {
-            dTime = ((_blockNumber - point.blk) * (block.timestamp - point.ts)) / (block.number - point.blk);
-        }
-        // Now dTime contains info on how far are we beyond point
-        return _supplyAt(point, point.ts + dTime);
     }
 }
