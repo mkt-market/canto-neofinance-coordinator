@@ -56,9 +56,15 @@ contract GaugeController {
     /// @param _votingEscrow The voting escrow address
     constructor(address _votingEscrow, address _governance) {
         votingEscrow = VotingEscrow(_votingEscrow);
-        governance = _governance; // TODO: Maybe change to Oracle
+        governance = _governance;
         uint256 last_epoch = (block.timestamp / WEEK) * WEEK;
         time_sum = last_epoch;
+    }
+
+    /// @notice Set governance address
+    /// @param _governance New governance address
+    function setGovernance(address _governance) external onlyGovernance {
+        governance = _governance;
     }
 
     /// @notice Fill historic gauge weights week-over-week for missed checkins and return the sum for the future week

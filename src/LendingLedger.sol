@@ -53,7 +53,13 @@ contract LendingLedger {
 
     constructor(address _gaugeController, address _governance) {
         gaugeController = GaugeController(_gaugeController);
-        governance = _governance; // TODO: Maybe change to Oracle
+        governance = _governance;
+    }
+
+    /// @notice Set governance address
+    /// @param _governance New governance address
+    function setGovernance(address _governance) external onlyGovernance {
+        governance = _governance;
     }
 
     /// @notice Fill in gaps in the user market balances history (if any exist)
