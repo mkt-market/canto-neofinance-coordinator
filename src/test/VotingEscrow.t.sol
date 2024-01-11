@@ -51,7 +51,6 @@ contract VotingEscrowTest is Test {
         assertEq(address(user1).balance - startBalance, LOCK_AMT);
     }
 
-
     function testTryCreateLockWithMsgValueNotEqual_value() public {
         vm.expectRevert("Invalid value");
         ve.createLock{value: 0}(1);

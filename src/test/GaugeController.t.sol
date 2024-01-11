@@ -176,7 +176,7 @@ contract GaugeControllerTest is Test {
 
         vm.startPrank(user1);
         ve.createLock{value: 1 ether}(1 ether);
-        uint nextEpoch = (block.timestamp + WEEK) / WEEK * WEEK;
+        uint256 nextEpoch = ((block.timestamp + WEEK) / WEEK) * WEEK;
         gc.vote_for_gauge_weights(gauge1, 10000); // vote 100% for gauge1
         vm.warp(nextEpoch - 1);
         gc.vote_for_gauge_weights(gauge1, 0); // remove vote for gauge1

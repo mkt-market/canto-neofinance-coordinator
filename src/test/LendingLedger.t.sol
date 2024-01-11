@@ -386,7 +386,7 @@ contract LendingLedgerTest is Test {
         int256 delta = 1.1 ether;
 
         vm.prank(goverance);
-        ledger.setRewards(0, WEEK*10, amountPerEpoch);
+        ledger.setRewards(0, WEEK * 10, amountPerEpoch);
         vm.startPrank(lendingMarket);
         // users[2] deposits at beginning of epoch
         vm.warp(WEEK * 4);
@@ -409,12 +409,12 @@ contract LendingLedgerTest is Test {
         ledger.claim(lendingMarket, 0, type(uint256).max);
         uint256 balanceAfter = address(lender).balance;
         // Lender should receive rewards for 1 second
-        assertEq(balanceAfter - balanceBefore, 1 * 1 ether * 1.1 ether / (1.1 ether * WEEK + 1.1 ether));
+        assertEq(balanceAfter - balanceBefore, (1 * 1 ether * 1.1 ether) / (1.1 ether * WEEK + 1.1 ether));
         uint256 balanceBefore2 = address(users[2]).balance;
         vm.prank(users[2]);
         ledger.claim(lendingMarket, 0, type(uint256).max);
         uint256 balanceAfter2 = address(users[2]).balance;
         // User2 should receive rewards for 1 week
-        assertEq(balanceAfter2 - balanceBefore2, WEEK * 1 ether * 1.1 ether / (1.1 ether * WEEK + 1.1 ether));
+        assertEq(balanceAfter2 - balanceBefore2, (WEEK * 1 ether * 1.1 ether) / (1.1 ether * WEEK + 1.1 ether));
     }
 }

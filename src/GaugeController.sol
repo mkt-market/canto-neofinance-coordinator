@@ -220,7 +220,7 @@ contract GaugeController {
         points_sum[next_time].slope -= old_slope;
         // We have to cancel all slope changes (gauge specific and global) that were caused by this gauge
         // This is not very efficient, but does the job for a governance function that is called very rarely
-        for (uint i; i < 263; ++i) {
+        for (uint256 i; i < 263; ++i) {
             uint256 time_to_check = next_time + i * WEEK;
             uint256 gauge_weight_change = changes_weight[_gauge][time_to_check];
             if (gauge_weight_change > 0) {
