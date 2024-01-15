@@ -23,15 +23,19 @@ contract LendingLedgerTest is Test {
 
     uint256 public constant WEEK = 7 days;
 
+    uint256 public constant BLOCK_EPOCH = 100_000;
+
     address lendingMarket;
 
     address lender;
 
     uint248 amountPerEpoch = 1 ether;
 
-    uint256 fromEpoch = WEEK * 5;
+    uint256 amountPerBlock = amountPerEpoch / BLOCK_EPOCH;
 
-    uint256 toEpoch = WEEK * 10;
+    uint256 fromEpoch = BLOCK_EPOCH * 5;
+
+    uint256 toEpoch = BLOCK_EPOCH * 10;
 
     function setUp() public {
         utils = new Utilities();
@@ -90,42 +94,25 @@ contract LendingLedgerTest is Test {
     }
 
     function testSetRewardWithInvalidEpoch() public {
-        uint248 amountPerEpoch = 1 ether;
+        uint256 fromEpoch = BLOCK_EPOCH * 5 + 30;
+        uint256 toEpoch = BLOCK_EPOCH * 10 - 26;
 
-        uint256 fromEpoch = WEEK * 5 + 30 seconds;
-        uint256 toEpoch = WEEK * 10 - 26 seconds;
-
-        vm.expectRevert("Invalid timestamp");
-        ledger.setRewards(fromEpoch, toEpoch, amountPerEpoch);
+        vm.prank(goverance);
+        vm.expectRevert("Invalid block number");
+        ledger.setRewards(fromEpoch, toEpoch, amountPerBlock);
     }
 
     function testSetValidRewardDistribution() public {
-        uint248 amountPerEpoch = 1 ether;
-
-        uint256 fromEpoch = WEEK * 5;
-        uint256 toEpoch = WEEK * 10;
+        uint256 fromEpoch = BLOCK_EPOCH * 5;
+        uint256 toEpoch = BLOCK_EPOCH * 10;
 
         vm.startPrank(goverance);
-        ledger.setRewards(fromEpoch, toEpoch, amountPerEpoch);
+        ledger.setRewards(fromEpoch, toEpoch, amountPerBlock);
 
-        for (uint256 i = fromEpoch; i <= toEpoch; i += WEEK) {
-            (bool set, uint248 amount) = ledger.rewardInformation(i);
-            assertTrue(set);
-            assertTrue(amount == amountPerEpoch);
+        for (uint256 i = fromEpoch; i <= toEpoch; i += BLOCK_EPOCH) {
+            uint256 perBlock = ledger.cantoPerBlock(i);
+            assertEq(amountPerBlock, perBlock);
         }
-    }
-
-    function testSetRewardTwice() public {
-        uint248 amountPerEpoch = 1 ether;
-
-        uint256 fromEpoch = WEEK * 5;
-        uint256 toEpoch = WEEK * 10;
-
-        vm.startPrank(goverance);
-        ledger.setRewards(fromEpoch, toEpoch, amountPerEpoch);
-
-        vm.expectRevert("Rewards already set");
-        ledger.setRewards(fromEpoch, toEpoch, amountPerEpoch);
     }
 
     function testSyncLedgerMarketNotWhitelisted() public {
@@ -147,7 +134,7 @@ contract LendingLedgerTest is Test {
         int256 delta = -100;
         vm.startPrank(lendingMarket);
 
-        vm.expectRevert("Lender balance underflow");
+        vm.expectRevert();
         ledger.sync_ledger(lender, delta);
     }
 
@@ -160,11 +147,7 @@ contract LendingLedgerTest is Test {
 
         uint256 epoch = 0;
 
-        uint256 lendingMarketBalance = ledger.lendingMarketBalances(lendingMarket, lender, epoch);
-
-        assertTrue(lendingMarketBalance == uint256(delta));
-
-        uint256 lendingMarketTotal = ledger.lendingMarketTotalBalance(lendingMarket, epoch);
+        uint256 lendingMarketTotal = ledger.lendingMarketTotalBalance(lendingMarket);
 
         assertTrue(lendingMarketTotal == uint256(delta));
     }
@@ -187,12 +170,8 @@ contract LendingLedgerTest is Test {
         uint256 epochEnd = (newTime / WEEK) * WEEK;
         ledger.sync_ledger(lender, deltaEnd);
 
-        // lender balance is forwarded and set
-        uint256 lenderBalance = ledger.lendingMarketBalances(lendingMarket, lender, epochEnd);
-        assertEq(lenderBalance, uint256(deltaStart) + uint256(deltaEnd));
-
         // total balance is forwarded and set
-        uint256 totalBalance = ledger.lendingMarketTotalBalance(lendingMarket, epochEnd);
+        uint256 totalBalance = ledger.lendingMarketTotalBalance(lendingMarket);
         assertEq(totalBalance, uint256(deltaStart) + uint256(deltaEnd));
     }
 
@@ -200,9 +179,9 @@ contract LendingLedgerTest is Test {
         whiteListMarket();
 
         vm.prank(goverance);
-        ledger.setRewards(fromEpoch, toEpoch, amountPerEpoch);
+        ledger.setRewards(fromEpoch, toEpoch, amountPerBlock);
 
-        vm.warp(WEEK * 5);
+        vm.roll(BLOCK_EPOCH * 5);
 
         int256 delta = 1.1 ether;
         vm.prank(lendingMarket);
@@ -210,8 +189,22 @@ contract LendingLedgerTest is Test {
 
         // airdrop ledger enough token balance for user to claim
         payable(ledger).transfer(1000 ether);
+    }
 
-        vm.warp(WEEK * 20);
+    function testClaimValidLenderOneBlock() public {
+        setupStateBeforeClaim();
+
+        uint256 balanceBefore = address(lender).balance;
+        vm.prank(lender);
+        vm.roll(BLOCK_EPOCH * 5 + 1);
+        ledger.claim(lendingMarket);
+        uint256 balanceAfter = address(lender).balance;
+        assertEq(balanceAfter - balanceBefore, amountPerBlock - 1); // We round down...
+
+        // Second claim should not increase
+        ledger.claim(lendingMarket);
+        uint256 balanceAfter2 = address(lender).balance;
+        assertEq(balanceAfter, balanceAfter2);
     }
 
     function testClaimValidLenderOneEpoch() public {
@@ -219,202 +212,103 @@ contract LendingLedgerTest is Test {
 
         uint256 balanceBefore = address(lender).balance;
         vm.prank(lender);
-        ledger.claim(lendingMarket, fromEpoch, fromEpoch);
+        vm.roll(BLOCK_EPOCH * 6);
+        ledger.claim(lendingMarket);
         uint256 balanceAfter = address(lender).balance;
-        assertTrue(balanceAfter - balanceBefore == 1 ether);
+        assertEq(balanceAfter - balanceBefore, 1 ether - 1); // We round down...
 
-        uint256 claimedEpoch = ledger.userClaimedEpoch(lendingMarket, lender);
-        assertTrue(claimedEpoch - fromEpoch == WEEK);
+        // Second claim should not increase
+        ledger.claim(lendingMarket);
+        uint256 balanceAfter2 = address(lender).balance;
+        assertEq(balanceAfter, balanceAfter2);
     }
 
-    function testClaimValidLenderMultipleEpoch() public {
+    function testClaimValidLenderTwoEpochs() public {
         setupStateBeforeClaim();
 
         uint256 balanceBefore = address(lender).balance;
         vm.prank(lender);
-        ledger.claim(lendingMarket, fromEpoch, toEpoch);
+        vm.roll(BLOCK_EPOCH * 7);
+        ledger.claim(lendingMarket);
         uint256 balanceAfter = address(lender).balance;
-        assertTrue(balanceAfter - balanceBefore == 6 ether);
+        assertEq(balanceAfter - balanceBefore, 2 ether - 2); // We round down...
 
-        uint256 claimedEpoch = ledger.userClaimedEpoch(lendingMarket, lender);
-        assertTrue(claimedEpoch - toEpoch == WEEK);
+        // Second claim should not increase
+        ledger.claim(lendingMarket);
+        uint256 balanceAfter2 = address(lender).balance;
+        assertEq(balanceAfter, balanceAfter2);
     }
 
-    function testClaimTwiceForEpoch() public {
-        uint248 amountPerEpoch = 1 ether;
-
-        uint256 fromEpoch = WEEK * 5;
-        uint256 toEpoch = WEEK * 10;
-
-        address lendingMarket = vm.addr(5201314);
-
-        vm.prank(goverance);
-        ledger.whiteListLendingMarket(lendingMarket, true);
-
-        vm.prank(goverance);
-        ledger.setRewards(fromEpoch, toEpoch, amountPerEpoch);
-
-        vm.warp(WEEK * 5);
-        address lender = users[1];
-
-        int256 delta = 1.1 ether;
-        vm.prank(lendingMarket);
-        ledger.sync_ledger(lender, delta);
-
-        payable(ledger).transfer(1000 ether);
-        vm.prank(lender);
-
-        vm.warp(WEEK * 20);
-
-        uint256 balanceBefore = address(lender).balance;
-        ledger.claim(lendingMarket, fromEpoch, fromEpoch);
-        uint256 balanceAfter = address(lender).balance;
-        assertTrue(balanceAfter - balanceBefore == 1 ether);
-
-        vm.expectRevert("No deposits for this user");
-        ledger.claim(lendingMarket, fromEpoch, fromEpoch);
-    }
-
-    function testClaimTooHighEndEpoch() public {
-        uint248 amountPerEpoch = 1 ether;
-
-        uint256 fromEpoch = WEEK * 5;
-        uint256 toEpoch = WEEK * 12;
-
-        address lendingMarket = vm.addr(5201314);
-
-        vm.prank(goverance);
-        ledger.whiteListLendingMarket(lendingMarket, true);
-
-        vm.prank(goverance);
-        ledger.setRewards(fromEpoch, toEpoch, amountPerEpoch);
-
-        vm.warp(WEEK * 5);
-        address lender = users[1];
-
-        int256 delta = 1.1 ether;
-        vm.prank(lendingMarket);
-        ledger.sync_ledger(lender, delta);
-
-        payable(ledger).transfer(1000 ether);
-        vm.prank(lender);
-
-        vm.warp(WEEK * 11);
-
-        uint256 balanceBefore = address(lender).balance;
-        ledger.claim(lendingMarket, fromEpoch, type(uint256).max);
-        uint256 balanceAfter = address(lender).balance;
-        assertTrue(balanceAfter - balanceBefore == 6 ether);
-    }
-
-    function testClaimSkipForfeitsRewards() public {
+    function testClaimMultipleLenders() public {
         setupStateBeforeClaim();
-
-        vm.startPrank(lender);
-        uint256 beforeClaim = vm.snapshot();
-
-        uint256 balanceBefore = address(lender).balance;
-        ledger.claim(lendingMarket, fromEpoch + 2 weeks, toEpoch);
-        uint256 balanceAfter = address(lender).balance;
-        assertEq(balanceAfter - balanceBefore, 4 ether);
-
-        balanceBefore = address(lender).balance;
-        ledger.claim(lendingMarket, fromEpoch, fromEpoch + 1 weeks);
-        balanceAfter = address(lender).balance;
-        assertEq(balanceAfter, balanceBefore);
-
-        balanceBefore = address(lender).balance;
-        ledger.claim(lendingMarket, fromEpoch, toEpoch);
-        balanceAfter = address(lender).balance;
-        assertEq(balanceAfter, balanceBefore);
-
-        vm.revertTo(beforeClaim);
-
-        balanceBefore = address(lender).balance;
-        ledger.claim(lendingMarket, fromEpoch, fromEpoch + 2 weeks);
-        balanceAfter = address(lender).balance;
-        assertEq(balanceAfter - balanceBefore, 3 ether);
-
-        balanceBefore = address(lender).balance;
-        ledger.claim(lendingMarket, fromEpoch + 3 weeks, toEpoch);
-        balanceAfter = address(lender).balance;
-        assertEq(balanceAfter - balanceBefore, 3 ether);
-    }
-
-    function testTryClaimWithInvalidStartEpoch() public {
-        uint256 someWeeks = 7 * ledger.WEEK();
-
-        vm.expectRevert("Invalid timestamp");
-        ledger.claim(address(0), someWeeks + 1, type(uint256).max);
-
-        vm.expectRevert("Invalid timestamp");
-        ledger.claim(address(0), someWeeks - 1, type(uint256).max);
-    }
-
-    function testTryClaimWithInvalidEndEpoch() public {
-        uint256 someWeeks = 7 * ledger.WEEK();
-
-        vm.expectRevert("Invalid timestamp");
-        ledger.claim(address(0), type(uint256).max, someWeeks + 1);
-
-        vm.expectRevert("Invalid timestamp");
-        ledger.claim(address(0), type(uint256).max, someWeeks - 1);
-    }
-
-    function testTryClaimForEpochWithoutSetRewards() public {
-        address payable alice = users[0];
-        vm.label(alice, "Alice");
-        address market = address(6);
-        vm.label(market, "market");
-        vm.prank(goverance);
-        ledger.whiteListLendingMarket(market, true);
-
-        vm.warp(WEEK);
-
-        vm.prank(market);
-        ledger.sync_ledger(alice, 1);
-
-        vm.warp(toEpoch + WEEK);
-
-        vm.expectRevert("Reward not set yet");
-        vm.prank(alice);
-        ledger.claim(market, fromEpoch, toEpoch);
-    }
-
-    function testTimeWeightedClaiming() public {
-        whiteListMarket();
-        int256 delta = 1.1 ether;
-
-        vm.prank(goverance);
-        ledger.setRewards(0, WEEK * 10, amountPerEpoch);
         vm.startPrank(lendingMarket);
-        // users[2] deposits at beginning of epoch
-        vm.warp(WEEK * 4);
-        ledger.sync_ledger(users[2], delta);
-        // lender deposits at 23:59 (week 4)
-        vm.warp((WEEK * 5) - 1);
-
-        ledger.sync_ledger(lender, delta);
+        vm.roll(BLOCK_EPOCH * 5 + BLOCK_EPOCH / 2);
+        // In middle of first epoch, second depositor deposits
+        ledger.sync_ledger(users[2], 2.2 ether);
+        // At beginning of second epoch, third depositor deposits
+        vm.roll(BLOCK_EPOCH * 6);
+        ledger.sync_ledger(users[3], 1.1 ether / 2);
         vm.stopPrank();
-
-        // airdrop ledger enough token balance for user to claim
-        payable(ledger).transfer(1000 ether);
-        // withdraw at 00:00 (week 5)
-        vm.warp(WEEK * 5);
-        vm.prank(lendingMarket);
-        ledger.sync_ledger(lender, delta * (-1));
-
-        uint256 balanceBefore = address(lender).balance;
+        vm.roll(BLOCK_EPOCH * 7);
+        uint256 balanceBefore1 = address(lender).balance;
         vm.prank(lender);
-        ledger.claim(lendingMarket, 0, type(uint256).max);
-        uint256 balanceAfter = address(lender).balance;
-        // Lender should receive rewards for 1 second
-        assertEq(balanceAfter - balanceBefore, (1 * 1 ether * 1.1 ether) / (1.1 ether * WEEK + 1.1 ether));
+        ledger.claim(lendingMarket);
+        uint256 balanceAfter1 = address(lender).balance;
+        // lender should receive: 0.5 ETH for first epoch half, 0.5 / 3 ETH for first epoch second half, 1.1 / 3.85 ETH for second epoch
+        uint256 expected1 = 0.5 ether + 0.5 ether / uint256(3) + (1 ether * uint256(110)) / uint256(385);
+        assertEq(balanceAfter1 - balanceBefore1, expected1);
+
         uint256 balanceBefore2 = address(users[2]).balance;
         vm.prank(users[2]);
-        ledger.claim(lendingMarket, 0, type(uint256).max);
+        ledger.claim(lendingMarket);
         uint256 balanceAfter2 = address(users[2]).balance;
-        // User2 should receive rewards for 1 week
-        assertEq(balanceAfter2 - balanceBefore2, (WEEK * 1 ether * 1.1 ether) / (1.1 ether * WEEK + 1.1 ether));
+        // second user should receive: 2 / 3 * 0.5 ETH for first epoch second half, 2.2 / 3.85 ETH for second epoch
+        uint256 expected2 = (0.5 ether * 2) / uint256(3) + (1 ether * uint256(220)) / uint256(385);
+        assertEq(balanceAfter2 - balanceBefore2, expected2);
+
+        uint256 balanceBefore3 = address(users[3]).balance;
+        vm.prank(users[3]);
+        ledger.claim(lendingMarket);
+        uint256 balanceAfter3 = address(users[3]).balance;
+        // third user should receive: 0.55 / 3.85 ETH for second epoch
+        uint256 expected3 = (1 ether * uint256(55)) / uint256(385);
+        assertEq(balanceAfter3 - balanceBefore3, expected3);
     }
+
+    // function testTimeWeightedClaiming() public {
+    //     whiteListMarket();
+    //     int256 delta = 1.1 ether;
+
+    //     vm.prank(goverance);
+    //     ledger.setRewards(0, WEEK * 10, amountPerEpoch);
+    //     vm.startPrank(lendingMarket);
+    //     // users[2] deposits at beginning of epoch
+    //     vm.warp(WEEK * 4);
+    //     ledger.sync_ledger(users[2], delta);
+    //     // lender deposits at 23:59 (week 4)
+    //     vm.warp((WEEK * 5) - 1);
+
+    //     ledger.sync_ledger(lender, delta);
+    //     vm.stopPrank();
+
+    //     // airdrop ledger enough token balance for user to claim
+    //     payable(ledger).transfer(1000 ether);
+    //     // withdraw at 00:00 (week 5)
+    //     vm.warp(WEEK * 5);
+    //     vm.prank(lendingMarket);
+    //     ledger.sync_ledger(lender, delta * (-1));
+
+    //     uint256 balanceBefore = address(lender).balance;
+    //     vm.prank(lender);
+    //     ledger.claim(lendingMarket, 0, type(uint256).max);
+    //     uint256 balanceAfter = address(lender).balance;
+    //     // Lender should receive rewards for 1 second
+    //     assertEq(balanceAfter - balanceBefore, (1 * 1 ether * 1.1 ether) / (1.1 ether * WEEK + 1.1 ether));
+    //     uint256 balanceBefore2 = address(users[2]).balance;
+    //     vm.prank(users[2]);
+    //     ledger.claim(lendingMarket, 0, type(uint256).max);
+    //     uint256 balanceAfter2 = address(users[2]).balance;
+    //     // User2 should receive rewards for 1 week
+    //     assertEq(balanceAfter2 - balanceBefore2, (WEEK * 1 ether * 1.1 ether) / (1.1 ether * WEEK + 1.1 ether));
+    // }
 }

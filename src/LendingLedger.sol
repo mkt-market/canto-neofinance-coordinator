@@ -5,6 +5,7 @@ import {VotingEscrow} from "./VotingEscrow.sol";
 import {GaugeController} from "./GaugeController.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "forge-std/console.sol";
 
 contract LendingLedger {
     // Constants
@@ -32,7 +33,7 @@ contract LendingLedger {
     mapping(address => mapping(address => UserInfo)) public userInfo; // Info of each user for the different lending markets
     mapping(address => MarketInfo) public marketInfo; // Info of each lending market
 
-    mapping(uint256 => uint256) cantoPerBlock; // CANTO per block for each epoch
+    mapping(uint256 => uint256) public cantoPerBlock; // CANTO per block for each epoch
 
     /// @dev Lending Market => Epoch => Balance
     mapping(address => uint256) public lendingMarketTotalBalance; // Total balance locked within the market
@@ -63,7 +64,7 @@ contract LendingLedger {
                 while (i < block.number) {
                     uint256 epoch = (i / BLOCK_EPOCH) * BLOCK_EPOCH; // Rewards and voting weights are aligned on a weekly basis
                     uint256 nextEpoch = i + BLOCK_EPOCH;
-                    uint256 blockDelta = i - Math.min(nextEpoch, block.number);
+                    uint256 blockDelta = Math.min(nextEpoch, block.number) - i;
                     uint256 cantoReward = (blockDelta *
                         cantoPerBlock[epoch] *
                         gaugeController.gauge_relative_weight_write(_market, epoch)) / 1e18;
@@ -123,8 +124,9 @@ contract LendingLedger {
     function setRewards(
         uint256 _fromEpoch,
         uint256 _toEpoch,
-        uint248 _amountPerBlock
+        uint256 _amountPerBlock
     ) external onlyGovernance {
+        require(_fromEpoch % BLOCK_EPOCH == 0 && _toEpoch % BLOCK_EPOCH == 0, "Invalid block number");
         for (uint256 i = _fromEpoch; i <= _toEpoch; i += BLOCK_EPOCH) {
             cantoPerBlock[i] = _amountPerBlock;
         }
@@ -136,6 +138,9 @@ contract LendingLedger {
     function whiteListLendingMarket(address _market, bool _isWhiteListed) external onlyGovernance {
         require(lendingMarketWhitelist[_market] != _isWhiteListed, "No change");
         lendingMarketWhitelist[_market] = _isWhiteListed;
+        if (_isWhiteListed) {
+            marketInfo[_market].lastRewardBlock = uint64(block.number);
+        }
     }
 
     receive() external payable {}
