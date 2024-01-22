@@ -5,7 +5,6 @@ import {VotingEscrow} from "./VotingEscrow.sol";
 import {GaugeController} from "./GaugeController.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "forge-std/console.sol";
 
 contract LendingLedger {
     // Constants
