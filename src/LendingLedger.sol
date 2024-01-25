@@ -88,11 +88,7 @@ contract LendingLedger {
         MarketInfo storage market = marketInfo[_token];
         UserInfo storage user = userInfo[_token][_user];
 
-        IERC20(_token).safeTransferFrom(
-            _user,
-            address(this),
-            _amount
-        );
+        IERC20(_token).safeTransferFrom(_user, address(this), _amount);
 
         user.amount += uint256(_amount);
         user.rewardDebt += int256((uint256(_amount) * market.accCantoPerShare) / 1e18);
@@ -111,10 +107,7 @@ contract LendingLedger {
         UserInfo storage user = userInfo[_token][_user];
 
         require(user.amount >= _amount, "amount exceeds deposit");
-        IERC20(_token).safeTransfer(
-            _user,
-            _amount
-        );
+        IERC20(_token).safeTransfer(_user, _amount);
 
         user.amount -= uint256(_amount);
         user.rewardDebt -= int256((uint256(_amount) * market.accCantoPerShare) / 1e18);

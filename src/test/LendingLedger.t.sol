@@ -9,7 +9,7 @@ import "../LendingLedger.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract MockERC20 is ERC20 {
-    constructor() ERC20("M20","M20") {
+    constructor() ERC20("M20", "M20") {
         _mint(msg.sender, 1000000e18);
     }
 }
@@ -198,7 +198,7 @@ contract LendingLedgerTest is Test {
     function testDepositMarketToken() public {
         setupMarketToken();
 
-        uint amount = 1000e18;
+        uint256 amount = 1000e18;
         vm.startPrank(lender);
         ledger.depositMarketToken(address(marketToken), amount);
 
@@ -209,7 +209,7 @@ contract LendingLedgerTest is Test {
     function testWithdrawMarketToken() public {
         setupMarketToken();
 
-        uint depositAmount = 1000e18;
+        uint256 depositAmount = 1000e18;
         uint256 withdrawAmount = 100e18;
         vm.startPrank(lender);
         ledger.depositMarketToken(address(marketToken), depositAmount);
@@ -222,7 +222,7 @@ contract LendingLedgerTest is Test {
     function testInvalidWithdrawMarketToken() public {
         setupMarketToken();
 
-        uint depositAmount = 1000e18;
+        uint256 depositAmount = 1000e18;
         uint256 withdrawAmount = 1001e18;
         vm.startPrank(lender);
         ledger.depositMarketToken(address(marketToken), depositAmount);
@@ -343,7 +343,7 @@ contract LendingLedgerTest is Test {
         // airdrop ledger enough token balance for user to claim
         payable(ledger).transfer(1000 ether);
 
-        uint amount = 1000e18;
+        uint256 amount = 1000e18;
         vm.startPrank(lender);
         ledger.depositMarketToken(address(marketToken), amount);
 
