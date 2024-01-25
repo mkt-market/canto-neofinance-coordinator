@@ -6,6 +6,13 @@ import {Utilities} from "./utils/Utilities.sol";
 // import {console} from "./utils/Console.sol";
 
 import "../LendingLedger.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+contract MockERC20 is ERC20 {
+    constructor() ERC20("M20","M20") {
+        _mint(msg.sender, 1000000e18);
+    }
+}
 
 contract DummyGaugeController {
     function gauge_relative_weight_write(address _gauge, uint256 _time) external returns (uint256) {
@@ -19,6 +26,8 @@ contract LendingLedgerTest is Test {
 
     LendingLedger ledger;
     DummyGaugeController controller;
+    MockERC20 marketToken;
+
     address goverance;
 
     uint256 public constant WEEK = 7 days;
@@ -175,6 +184,53 @@ contract LendingLedgerTest is Test {
         assertEq(totalBalance, uint256(deltaStart) + uint256(deltaEnd));
     }
 
+    function setupMarketToken() internal {
+        vm.startPrank(lender);
+        marketToken = new MockERC20();
+        marketToken.approve(address(ledger), 1000000e18);
+        vm.stopPrank();
+
+        vm.startPrank(goverance);
+        ledger.whiteListLendingMarket(address(marketToken), true);
+        vm.stopPrank();
+    }
+
+    function testDepositMarketToken() public {
+        setupMarketToken();
+
+        uint amount = 1000e18;
+        vm.startPrank(lender);
+        ledger.depositMarketToken(address(marketToken), amount);
+
+        uint256 lendingMarketTotal = ledger.lendingMarketTotalBalance(address(marketToken));
+        assertTrue(lendingMarketTotal == amount);
+    }
+
+    function testWithdrawMarketToken() public {
+        setupMarketToken();
+
+        uint depositAmount = 1000e18;
+        uint256 withdrawAmount = 100e18;
+        vm.startPrank(lender);
+        ledger.depositMarketToken(address(marketToken), depositAmount);
+        ledger.withdrawMarketToken(address(marketToken), withdrawAmount);
+
+        uint256 lendingMarketTotal = ledger.lendingMarketTotalBalance(address(marketToken));
+        assertTrue(lendingMarketTotal == depositAmount - withdrawAmount);
+    }
+
+    function testInvalidWithdrawMarketToken() public {
+        setupMarketToken();
+
+        uint depositAmount = 1000e18;
+        uint256 withdrawAmount = 1001e18;
+        vm.startPrank(lender);
+        ledger.depositMarketToken(address(marketToken), depositAmount);
+
+        vm.expectRevert("amount exceeds deposit");
+        ledger.withdrawMarketToken(address(marketToken), withdrawAmount);
+    }
+
     function setupStateBeforeClaim() internal {
         whiteListMarket();
 
@@ -273,6 +329,34 @@ contract LendingLedgerTest is Test {
         // third user should receive: 0.55 / 3.85 ETH for second epoch
         uint256 expected3 = (1 ether * uint256(55)) / uint256(385);
         assertEq(balanceAfter3 - balanceBefore3, expected3);
+    }
+
+    function testClaimValidWithMarketToken() public {
+        setupMarketToken();
+
+        vm.prank(goverance);
+        ledger.setRewards(fromEpoch, toEpoch, amountPerBlock);
+        vm.stopPrank();
+
+        vm.roll(BLOCK_EPOCH * 5);
+
+        // airdrop ledger enough token balance for user to claim
+        payable(ledger).transfer(1000 ether);
+
+        uint amount = 1000e18;
+        vm.startPrank(lender);
+        ledger.depositMarketToken(address(marketToken), amount);
+
+        uint256 balanceBefore = address(lender).balance;
+        vm.roll(BLOCK_EPOCH * 5 + 1);
+        ledger.claim(address(marketToken));
+        uint256 balanceAfter = address(lender).balance;
+        assertEq(balanceAfter - balanceBefore, amountPerBlock);
+
+        // Second claim should not increase
+        ledger.claim(address(marketToken));
+        uint256 balanceAfter2 = address(lender).balance;
+        assertEq(balanceAfter, balanceAfter2);
     }
 
     // function testTimeWeightedClaiming() public {
