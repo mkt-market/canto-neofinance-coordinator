@@ -88,13 +88,13 @@ contract LendingLedger {
         MarketInfo storage market = marketInfo[_token];
         UserInfo storage user = userInfo[_token][_user];
 
-        IERC20(_token).safeTransferFrom(_user, address(this), _amount);
-
         user.amount += uint256(_amount);
         user.rewardDebt += int256((uint256(_amount) * market.accCantoPerShare) / 1e18);
         user.secRewardDebt += int256((uint256(_amount) * market.secRewardsPerShare) / 1e18);
 
         lendingMarketTotalBalance[_token] = lendingMarketTotalBalance[_token] + _amount;
+
+        IERC20(_token).safeTransferFrom(_user, address(this), _amount);
     }
 
     /// @notice Function called by the user to withdraw market tokens
@@ -112,9 +112,9 @@ contract LendingLedger {
         user.rewardDebt -= int256((uint256(_amount) * market.accCantoPerShare) / 1e18);
         user.secRewardDebt -= int256((uint256(_amount) * market.secRewardsPerShare) / 1e18);
 
-        IERC20(_token).safeTransfer(_user, _amount);
-
         lendingMarketTotalBalance[_token] = lendingMarketTotalBalance[_token] - _amount;
+
+        IERC20(_token).safeTransfer(_user, _amount);
     }
 
     /// @notice Function that is called by the lending market on cNOTE deposits / withdrawals
