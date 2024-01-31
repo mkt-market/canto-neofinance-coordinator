@@ -6,6 +6,13 @@ import {Utilities} from "./utils/Utilities.sol";
 // import {console} from "./utils/Console.sol";
 
 import "../LendingLedger.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+contract MockERC20 is ERC20 {
+    constructor() ERC20("M20", "M20") {
+        _mint(msg.sender, 1000 ether);
+    }
+}
 
 contract DummyGaugeController {
     function gauge_relative_weight_write(address _gauge, uint256 _time) external returns (uint256) {
@@ -19,6 +26,8 @@ contract LendingLedgerTest is Test {
 
     LendingLedger ledger;
     DummyGaugeController controller;
+    MockERC20 marketToken;
+
     address goverance;
 
     uint256 public constant WEEK = 7 days;
@@ -175,6 +184,53 @@ contract LendingLedgerTest is Test {
         assertEq(totalBalance, uint256(deltaStart) + uint256(deltaEnd));
     }
 
+    function setupMarketToken() internal {
+        vm.startPrank(lender);
+        marketToken = new MockERC20();
+        marketToken.approve(address(ledger), 1.1 ether);
+        vm.stopPrank();
+
+        vm.startPrank(goverance);
+        ledger.whiteListLendingMarket(address(marketToken), true);
+        vm.stopPrank();
+    }
+
+    function testDepositMarketToken() public {
+        setupMarketToken();
+
+        uint256 amount = 1.1 ether;
+        vm.startPrank(lender);
+        ledger.depositMarketToken(address(marketToken), amount);
+
+        uint256 lendingMarketTotal = ledger.lendingMarketTotalBalance(address(marketToken));
+        assertTrue(lendingMarketTotal == amount);
+    }
+
+    function testWithdrawMarketToken() public {
+        setupMarketToken();
+
+        uint256 depositAmount = 1.1 ether;
+        uint256 withdrawAmount = 1 ether;
+        vm.startPrank(lender);
+        ledger.depositMarketToken(address(marketToken), depositAmount);
+        ledger.withdrawMarketToken(address(marketToken), withdrawAmount);
+
+        uint256 lendingMarketTotal = ledger.lendingMarketTotalBalance(address(marketToken));
+        assertTrue(lendingMarketTotal == depositAmount - withdrawAmount);
+    }
+
+    function testInvalidWithdrawMarketToken() public {
+        setupMarketToken();
+
+        uint256 depositAmount = 1.1 ether;
+        uint256 withdrawAmount = 1.2 ether;
+        vm.startPrank(lender);
+        ledger.depositMarketToken(address(marketToken), depositAmount);
+
+        vm.expectRevert("amount exceeds deposit");
+        ledger.withdrawMarketToken(address(marketToken), withdrawAmount);
+    }
+
     function setupStateBeforeClaim() internal {
         whiteListMarket();
 
@@ -186,6 +242,22 @@ contract LendingLedgerTest is Test {
         int256 delta = 1.1 ether;
         vm.prank(lendingMarket);
         ledger.sync_ledger(lender, delta);
+
+        // airdrop ledger enough token balance for user to claim
+        payable(ledger).transfer(1000 ether);
+    }
+
+    function setupMarketTokenStateBeforeClaim() internal {
+        setupMarketToken();
+
+        vm.prank(goverance);
+        ledger.setRewards(fromEpoch, toEpoch, amountPerBlock);
+
+        vm.roll(BLOCK_EPOCH * 5);
+
+        uint256 amount = 1.1 ether;
+        vm.prank(lender);
+        ledger.depositMarketToken(address(marketToken), amount);
 
         // airdrop ledger enough token balance for user to claim
         payable(ledger).transfer(1000 ether);
@@ -269,6 +341,103 @@ contract LendingLedgerTest is Test {
         uint256 balanceBefore3 = address(users[3]).balance;
         vm.prank(users[3]);
         ledger.claim(lendingMarket);
+        uint256 balanceAfter3 = address(users[3]).balance;
+        // third user should receive: 0.55 / 3.85 ETH for second epoch
+        uint256 expected3 = (1 ether * uint256(55)) / uint256(385);
+        assertEq(balanceAfter3 - balanceBefore3, expected3);
+    }
+
+    function testClaimValidMarketTokenOneBlock() public {
+        setupMarketTokenStateBeforeClaim();
+
+        uint256 balanceBefore = address(lender).balance;
+        vm.prank(lender);
+        vm.roll(BLOCK_EPOCH * 5 + 1);
+        ledger.claim(address(marketToken));
+        uint256 balanceAfter = address(lender).balance;
+        assertEq(balanceAfter - balanceBefore, amountPerBlock - 1); // We round down...
+
+        // Second claim should not increase
+        ledger.claim(address(marketToken));
+        uint256 balanceAfter2 = address(lender).balance;
+        assertEq(balanceAfter, balanceAfter2);
+    }
+
+    function testClaimValidMarketTokenOneEpoch() public {
+        setupMarketTokenStateBeforeClaim();
+
+        uint256 balanceBefore = address(lender).balance;
+        vm.prank(lender);
+        vm.roll(BLOCK_EPOCH * 6);
+        ledger.claim(address(marketToken));
+        uint256 balanceAfter = address(lender).balance;
+        assertEq(balanceAfter - balanceBefore, 1 ether - 1); // We round down...
+
+        // Second claim should not increase
+        ledger.claim(address(marketToken));
+        uint256 balanceAfter2 = address(lender).balance;
+        assertEq(balanceAfter, balanceAfter2);
+    }
+
+    function testClaimValidMarketTokenTwoEpochs() public {
+        setupMarketTokenStateBeforeClaim();
+
+        uint256 balanceBefore = address(lender).balance;
+        vm.prank(lender);
+        vm.roll(BLOCK_EPOCH * 7);
+        ledger.claim(address(marketToken));
+        uint256 balanceAfter = address(lender).balance;
+        assertEq(balanceAfter - balanceBefore, 2 ether - 2); // We round down...
+
+        // Second claim should not increase
+        ledger.claim(address(marketToken));
+        uint256 balanceAfter2 = address(lender).balance;
+        assertEq(balanceAfter, balanceAfter2);
+    }
+
+    function testClaimMultipleLendersMarketToken() public {
+        setupMarketTokenStateBeforeClaim();
+
+        vm.startPrank(lender);
+        marketToken.transfer(users[2], 2.2 ether);
+        marketToken.transfer(users[3], 1.1 ether / 2);
+        vm.stopPrank();
+
+        // In middle of first epoch, second depositor deposits
+        vm.roll(BLOCK_EPOCH * 5 + BLOCK_EPOCH / 2);
+        vm.startPrank(users[2]);
+        marketToken.approve(address(ledger), 2.2 ether);
+        marketToken.balanceOf(users[2]);
+        ledger.depositMarketToken(address(marketToken), 2.2 ether);
+        vm.stopPrank();
+
+        // At beginning of second epoch, third depositor deposits
+        vm.roll(BLOCK_EPOCH * 6);
+        vm.startPrank(users[3]);
+        marketToken.approve(address(ledger), 1.1 ether / 2);
+        ledger.depositMarketToken(address(marketToken), 1.1 ether / 2);
+        vm.stopPrank();
+
+        vm.roll(BLOCK_EPOCH * 7);
+        uint256 balanceBefore1 = address(lender).balance;
+        vm.prank(lender);
+        ledger.claim(address(marketToken));
+        uint256 balanceAfter1 = address(lender).balance;
+        // lender should receive: 0.5 ETH for first epoch half, 0.5 / 3 ETH for first epoch second half, 1.1 / 3.85 ETH for second epoch
+        uint256 expected1 = 0.5 ether + 0.5 ether / uint256(3) + (1 ether * uint256(110)) / uint256(385);
+        assertEq(balanceAfter1 - balanceBefore1, expected1);
+
+        uint256 balanceBefore2 = address(users[2]).balance;
+        vm.prank(users[2]);
+        ledger.claim(address(marketToken));
+        uint256 balanceAfter2 = address(users[2]).balance;
+        // second user should receive: 2 / 3 * 0.5 ETH for first epoch second half, 2.2 / 3.85 ETH for second epoch
+        uint256 expected2 = (0.5 ether * 2) / uint256(3) + (1 ether * uint256(220)) / uint256(385);
+        assertEq(balanceAfter2 - balanceBefore2, expected2);
+
+        uint256 balanceBefore3 = address(users[3]).balance;
+        vm.prank(users[3]);
+        ledger.claim(address(marketToken));
         uint256 balanceAfter3 = address(users[3]).balance;
         // third user should receive: 0.55 / 3.85 ETH for second epoch
         uint256 expected3 = (1 ether * uint256(55)) / uint256(385);
