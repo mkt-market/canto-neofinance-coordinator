@@ -7,6 +7,8 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract LendingLedger {
+    using SafeERC20 for IERC20;
+
     // Constants
     uint256 public constant BLOCK_EPOCH = 100_000; // 100000 blocks, roughly 1 week
     uint256 public averageBlockTime = 5700; // Average block time in milliseconds
@@ -85,6 +87,44 @@ contract LendingLedger {
             }
             market.lastRewardBlock = uint64(block.number);
         }
+    }
+
+    /// @notice Function called by user to deposit market tokens
+    /// @param _token Market token address to be deposited
+    /// @param _amount The amount of token to be deposited
+    function depositMarketToken(address _token, uint256 _amount) external {
+        address _user = msg.sender;
+        update_market(_token); // Checks if the market is whitelisted
+        MarketInfo storage market = marketInfo[_token];
+        UserInfo storage user = userInfo[_token][_user];
+
+        user.amount += uint256(_amount);
+        user.rewardDebt += int256((uint256(_amount) * market.accCantoPerShare) / 1e18);
+        user.secRewardDebt += int256((uint256(_amount) * market.secRewardsPerShare) / 1e18);
+
+        lendingMarketTotalBalance[_token] = lendingMarketTotalBalance[_token] + _amount;
+
+        IERC20(_token).safeTransferFrom(_user, address(this), _amount);
+    }
+
+    /// @notice Function called by the user to withdraw market tokens
+    /// @param _token Market token address to be withdrawn
+    /// @param _amount The amount of token to be withdrawn
+    function withdrawMarketToken(address _token, uint256 _amount) external {
+        address _user = msg.sender;
+        update_market(_token); // Checks if the market is whitelisted
+        MarketInfo storage market = marketInfo[_token];
+        UserInfo storage user = userInfo[_token][_user];
+
+        require(user.amount >= _amount, "amount exceeds deposit");
+
+        user.amount -= uint256(_amount);
+        user.rewardDebt -= int256((uint256(_amount) * market.accCantoPerShare) / 1e18);
+        user.secRewardDebt -= int256((uint256(_amount) * market.secRewardsPerShare) / 1e18);
+
+        lendingMarketTotalBalance[_token] = lendingMarketTotalBalance[_token] - _amount;
+
+        IERC20(_token).safeTransfer(_user, _amount);
     }
 
     /// @notice Function that is called by the lending market on cNOTE deposits / withdrawals
