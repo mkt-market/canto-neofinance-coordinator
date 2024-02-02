@@ -64,9 +64,11 @@ contract LendingLedger {
                     uint256 epoch = (i / BLOCK_EPOCH) * BLOCK_EPOCH; // Rewards and voting weights are aligned on a weekly basis
                     uint256 nextEpoch = epoch + BLOCK_EPOCH;
                     uint256 blockDelta = Math.min(nextEpoch, block.number) - i;
-                    market.accCantoPerShare += uint128((blockDelta *
-                        cantoPerBlock[epoch] *
-                        gaugeController.gauge_relative_weight_write(_market, epoch)) / marketSupply);
+                    market.accCantoPerShare += uint128(
+                        (blockDelta *
+                            cantoPerBlock[epoch] *
+                            gaugeController.gauge_relative_weight_write(_market, epoch)) / marketSupply
+                    );
                     market.secRewardsPerShare += uint128((blockDelta * 1e36) / marketSupply); // Scale by 1e18, consumers need to divide by it
                     i += blockDelta;
                 }
