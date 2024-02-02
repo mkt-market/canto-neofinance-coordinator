@@ -9,6 +9,9 @@ import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeE
 contract LendingLedger {
     // Constants
     uint256 public constant BLOCK_EPOCH = 100_000; // 100000 blocks, roughly 1 week
+    uint256 public averageBlockTime = 5700; // Average block time in milliseconds
+    uint256 public referenceBlockNumber;
+    uint256 public referenceBlockTime; // Used to convert block numbers to timestamps together with averageBlockTime
 
     // State
     address public governance;
@@ -45,6 +48,8 @@ contract LendingLedger {
     constructor(address _gaugeController, address _governance) {
         gaugeController = GaugeController(_gaugeController);
         governance = _governance;
+        referenceBlockNumber = block.number;
+        referenceBlockTime = block.timestamp;
     }
 
     /// @notice Set governance address
@@ -64,10 +69,15 @@ contract LendingLedger {
                     uint256 epoch = (i / BLOCK_EPOCH) * BLOCK_EPOCH; // Rewards and voting weights are aligned on a weekly basis
                     uint256 nextEpoch = epoch + BLOCK_EPOCH;
                     uint256 blockDelta = Math.min(nextEpoch, block.number) - i;
+                    // May not be the exact time, but will ensure that it is equal for all users and epochs.
+                    // If this ever drifts significantly, the average block time and / or reference block time & number can be updated. However, update_market needs to be called for all markets beforehand.
+                    uint256 epochTime = referenceBlockTime +
+                        ((block.number - referenceBlockNumber) * averageBlockTime) /
+                        1000;
                     market.accCantoPerShare += uint128(
                         (blockDelta *
                             cantoPerBlock[epoch] *
-                            gaugeController.gauge_relative_weight_write(_market, epoch)) / marketSupply
+                            gaugeController.gauge_relative_weight_write(_market, epochTime)) / marketSupply
                     );
                     market.secRewardsPerShare += uint128((blockDelta * 1e36) / marketSupply); // Scale by 1e18, consumers need to divide by it
                     i += blockDelta;
@@ -141,6 +151,20 @@ contract LendingLedger {
         if (_isWhiteListed) {
             marketInfo[_market].lastRewardBlock = uint64(block.number);
         }
+    }
+
+    /// @notice Used by governance to set the block time parameters if the drift is too large
+    /// @param _averageBlockTime The average block time in milliseconds
+    /// @param _referenceBlockTime The reference block time
+    /// @param _referenceBlockNumber The reference block number
+    function setBlockTimeParameters(
+        uint256 _averageBlockTime,
+        uint256 _referenceBlockTime,
+        uint256 _referenceBlockNumber
+    ) external onlyGovernance {
+        averageBlockTime = _averageBlockTime;
+        referenceBlockTime = _referenceBlockTime;
+        referenceBlockNumber = _referenceBlockNumber;
     }
 
     receive() external payable {}
