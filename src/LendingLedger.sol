@@ -68,7 +68,7 @@ contract LendingLedger {
                         cantoPerBlock[epoch] *
                         gaugeController.gauge_relative_weight_write(_market, epoch)) / 1e18;
                     market.accCantoPerShare += uint128((cantoReward * 1e18) / marketSupply);
-                    market.secRewardsPerShare += uint128((blockDelta * 1e18) / marketSupply); // TODO: Scaling
+                    market.secRewardsPerShare += uint128((blockDelta * 1e36) / marketSupply); // Scale by 1e18, consumers need to divide by it
                     i += blockDelta;
                 }
             }
