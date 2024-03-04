@@ -29,41 +29,48 @@ contract GaugeControllerTest is Test {
 
         ve = new VotingEscrow("VotingEscrow", "VE");
         gc = new GaugeController(address(ve), address(gov));
+
+        vm.prank(gov);
+        gc.add_type("Gauge Type 1", 1);
     }
 
     function testAddGauge() public {
-        assertTrue(!gc.isValidGauge(user1));
-        vm.startPrank(gov);
-        gc.add_gauge(user1);
-        vm.stopPrank();
-        assertTrue(gc.isValidGauge(user1));
+        vm.expectRevert("Invalid gauge address");
+        gc.gauge_types(user1);
+
+        vm.prank(gov);
+        gc.add_gauge(user1, 0);
+        
+        assertTrue(gc.gauge_types(user1) == 0);
     }
 
     function testAddGaugeExistingGauge() public {
         vm.startPrank(gov);
-        gc.add_gauge(user1);
+        gc.add_gauge(user1, 0);
 
-        // add_gauge for existing gauge
+        // Add gauge for existing gauge
         vm.expectRevert("Gauge already exists");
-        gc.add_gauge(user1);
+        gc.add_gauge(user1, 0);
         vm.stopPrank();
     }
 
     function testRemoveGauge() public {
         vm.startPrank(gov);
 
-        gc.add_gauge(user1);
-        assertTrue(gc.isValidGauge(user1));
+        gc.add_gauge(user1, 0);
+        assertTrue(gc.gauge_types(user1) == 0);
 
         gc.remove_gauge(user1);
-        assertTrue(!gc.isValidGauge(user1));
+        vm.expectRevert("Invalid gauge address");
+        gc.gauge_types(user1); 
         assertTrue(gc.get_gauge_weight(user1) == 0);
 
         vm.stopPrank();
     }
 
     function testRemoveGaugeForNonExistingGauge() public {
-        assertTrue(!gc.isValidGauge(user1));
+        vm.expectRevert("Invalid gauge address");
+        gc.gauge_types(user1);
         vm.prank(gov);
         vm.expectRevert("Invalid gauge address");
         gc.remove_gauge(user1);
@@ -71,8 +78,8 @@ contract GaugeControllerTest is Test {
 
     function testRemoveGaugeWeight() public {
         vm.prank(gov);
-        gc.add_gauge(user1);
-        assertTrue(gc.isValidGauge(user1));
+        gc.add_gauge(user1, 0);
+        assertTrue(gc.get_gauge_weight(user1) == 0);
 
         // Only callable by governance
         vm.prank(user1);
@@ -100,8 +107,8 @@ contract GaugeControllerTest is Test {
 
     function testMultiVoteWithInvalidWeight() public {
         vm.startPrank(gov);
-        gc.add_gauge(gauge1);
-        gc.add_gauge(gauge2);
+        gc.add_gauge(gauge1, 0);
+        gc.add_gauge(gauge2, 0);
 
         ve.createLock{value: 1 ether}(1 ether);
         gc.vote_for_gauge_weights(gauge1, 5000);
@@ -111,7 +118,7 @@ contract GaugeControllerTest is Test {
 
     function testVoteLockExpiresTooSoon() public {
         vm.prank(gov);
-        gc.add_gauge(user1);
+        gc.add_gauge(user1, 0);
 
         vm.startPrank(user1);
         vm.expectRevert("Lock expires too soon");
@@ -122,7 +129,7 @@ contract GaugeControllerTest is Test {
         // prepare
         vm.deal(user1, 100 ether);
         vm.startPrank(gov);
-        gc.add_gauge(user1);
+        gc.add_gauge(user1, 0);
         vm.stopPrank();
 
         uint256 v = 10 ether;
@@ -139,8 +146,8 @@ contract GaugeControllerTest is Test {
         vm.deal(gov, v);
         vm.startPrank(gov);
         ve.createLock{value: v}(v);
-        gc.add_gauge(user1);
-        gc.add_gauge(user2);
+        gc.add_gauge(user1, 0);
+        gc.add_gauge(user2, 0);
         // user1 vote 10%
         gc.vote_for_gauge_weights(user1, 100);
         gc.vote_for_gauge_weights(user2, 900);
@@ -156,8 +163,8 @@ contract GaugeControllerTest is Test {
         // vote_for_gauge_weights valid vote 50%
         // Should vote for gauge and change weights accordingly
         vm.startPrank(gov);
-        gc.add_gauge(gauge1);
-        gc.add_gauge(gauge2);
+        gc.add_gauge(gauge1, 0);
+        gc.add_gauge(gauge2, 0);
         vm.stopPrank();
 
         vm.startPrank(user1);
@@ -170,8 +177,8 @@ contract GaugeControllerTest is Test {
 
     function testVoteGaugeWeightChangeVote() public {
         vm.startPrank(gov);
-        gc.add_gauge(gauge1);
-        gc.add_gauge(gauge2);
+        gc.add_gauge(gauge1, 0);
+        gc.add_gauge(gauge2, 0);
         vm.stopPrank();
 
         vm.startPrank(user1);
@@ -187,8 +194,8 @@ contract GaugeControllerTest is Test {
 
     function testVoteDifferentTime() public {
         vm.startPrank(gov);
-        gc.add_gauge(gauge1);
-        gc.add_gauge(gauge2);
+        gc.add_gauge(gauge1, 0);
+        gc.add_gauge(gauge2, 0);
         vm.stopPrank();
 
         vm.deal(user1, 1010 ether);
@@ -240,7 +247,7 @@ contract GaugeControllerTest is Test {
 
     function testVoteExpiry() public {
         vm.startPrank(gov);
-        gc.add_gauge(gauge1);
+        gc.add_gauge(gauge1, 0);
         vm.stopPrank();
 
         vm.startPrank(user1);
@@ -262,8 +269,8 @@ contract GaugeControllerTest is Test {
 
     function testRelativeWeightWrite() public {
         vm.startPrank(gov);
-        gc.add_gauge(gauge1);
-        gc.add_gauge(gauge2);
+        gc.add_gauge(gauge1, 0);
+        gc.add_gauge(gauge2, 0);
         uint256[2] memory weights = [uint256(80), 20];
         vm.stopPrank();
         vm.startPrank(user1);
@@ -291,8 +298,8 @@ contract GaugeControllerTest is Test {
 
     function testVoteOverPowerReverts() public {
         vm.startPrank(gov);
-        gc.add_gauge(gauge1);
-        gc.add_gauge(gauge2);
+        gc.add_gauge(gauge1, 0);
+        gc.add_gauge(gauge2, 0);
         vm.stopPrank();
 
         vm.startPrank(user1);
@@ -304,7 +311,7 @@ contract GaugeControllerTest is Test {
 
     function testVoteGaugeWeightChange() public {
         vm.startPrank(gov);
-        gc.add_gauge(gauge1);
+        gc.add_gauge(gauge1, 0);
         vm.stopPrank();
 
         vm.startPrank(user1);
@@ -318,8 +325,8 @@ contract GaugeControllerTest is Test {
 
     function testVotePowerIsSumVotes() public {
         vm.startPrank(gov);
-        gc.add_gauge(gauge1);
-        gc.add_gauge(gauge2);
+        gc.add_gauge(gauge1, 0);
+        gc.add_gauge(gauge2, 0);
         vm.stopPrank();
 
         vm.startPrank(user1);
@@ -331,10 +338,10 @@ contract GaugeControllerTest is Test {
     }
 
     function testVoteCooldown() public {
-        vm.warp(((1690836281 + WEEK - 2 days) / WEEK) * WEEK);
+        // vm.warp(((1690836281 + WEEK - 2 days) / WEEK) * WEEK);
 
         vm.startPrank(gov);
-        gc.add_gauge(gauge1);
+        gc.add_gauge(gauge1, 0);
         vm.stopPrank();
 
         vm.startPrank(user1);

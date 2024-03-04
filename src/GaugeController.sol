@@ -159,7 +159,7 @@ contract GaugeController {
             t += WEEK;
             pt = 0;
             // Scales as n_types * n_unchecked_weeks (hopefully 1 at most)
-            for (int128 gauge_type; gauge_type < 100; ++i) {
+            for (int128 gauge_type; gauge_type < 100; ++gauge_type) {
                 if (gauge_type == _n_gauge_types) break;
                 uint256 type_sum = points_sum[gauge_type][t].bias;
                 uint256 type_weight = points_type_weight[gauge_type][t];
