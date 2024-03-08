@@ -303,6 +303,7 @@ contract GaugeController {
     // @param _name Name of gauge type
     // @param weight Weight of gauge type
     function add_type(string memory _name, uint256 _weight) external onlyGovernance {
+        require(n_gauge_types < 100, "Gauge type limit reached");
         int128 type_id = n_gauge_types;
         gauge_type_names[type_id] = _name;
         n_gauge_types = type_id + 1;
