@@ -40,7 +40,7 @@ contract GaugeControllerTest is Test {
 
     function testAddType() public {
         vm.prank(gov);
-        gc.add_type(TYPE_NAMES[1], TYPE_WEIGHTS[1]); 
+        gc.add_type(TYPE_NAMES[1], TYPE_WEIGHTS[1]);
 
         assertEq(gc.get_type_weight(0), TYPE_WEIGHTS[0]);
         assertEq(gc.get_type_weight(1), TYPE_WEIGHTS[1]);
@@ -48,7 +48,7 @@ contract GaugeControllerTest is Test {
 
     function testChangeTypeWeight() public {
         vm.prank(gov);
-        gc.change_type_weight(0, TYPE_WEIGHTS[0] + 1); 
+        gc.change_type_weight(0, TYPE_WEIGHTS[0] + 1);
 
         assertEq(gc.get_type_weight(0), TYPE_WEIGHTS[0] + 1);
     }
@@ -59,7 +59,7 @@ contract GaugeControllerTest is Test {
 
         vm.prank(gov);
         gc.add_gauge(user1, 0);
-        
+
         assertTrue(gc.gauge_types(user1) == 0);
     }
 
@@ -88,7 +88,7 @@ contract GaugeControllerTest is Test {
 
         gc.remove_gauge(user1);
         vm.expectRevert("Invalid gauge address");
-        gc.gauge_types(user1); 
+        gc.gauge_types(user1);
         assertTrue(gc.get_gauge_weight(user1) == 0);
 
         vm.stopPrank();
@@ -354,9 +354,9 @@ contract GaugeControllerTest is Test {
         uint256 rel_weight2 = gc.gauge_relative_weight(gauge2, block.timestamp);
         uint256 rel_weight3 = gc.gauge_relative_weight(gauge3, block.timestamp);
 
-        assertApproxEqRel(rel_weight1, (weights[0] * 1e18) * 3 / (4 * 1e2), 0.1e18);
-        assertApproxEqRel(rel_weight2, (weights[1] * 1e18) * 3 / (4 * 1e2), 0.1e18);
-        assertApproxEqRel(rel_weight3, (weights[2] * 1e18) * 2 / (1 * 1e2), 0.1e18);
+        assertApproxEqRel(rel_weight1, ((weights[0] * 1e18) * 3) / (4 * 1e2), 0.1e18);
+        assertApproxEqRel(rel_weight2, ((weights[1] * 1e18) * 3) / (4 * 1e2), 0.1e18);
+        assertApproxEqRel(rel_weight3, ((weights[2] * 1e18) * 2) / (1 * 1e2), 0.1e18);
     }
 
     function testVoteOverPowerReverts() public {

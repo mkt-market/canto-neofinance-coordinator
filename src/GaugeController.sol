@@ -41,7 +41,6 @@ contract GaugeController {
     mapping(int128 => mapping(uint256 => uint256)) changes_sum;
     mapping(int128 => uint256) public time_sum;
 
-
     mapping(uint256 => uint256) points_total;
     uint256 time_total;
 
@@ -95,7 +94,7 @@ contract GaugeController {
     /// @return Type weight
     function _get_type_weight(int128 gauge_type) internal returns (uint256) {
         uint256 t = time_type_weight[gauge_type];
-        if(t > 0){
+        if (t > 0) {
             uint256 w = points_type_weight[gauge_type][t];
             for (uint256 i; i < 500; ++i) {
                 if (t > block.timestamp) break;
@@ -142,7 +141,7 @@ contract GaugeController {
     function _get_total() internal returns (uint256) {
         uint256 t = time_total;
         int128 _n_gauge_types = n_gauge_types;
-        if (t > block.timestamp){
+        if (t > block.timestamp) {
             // If we have already checkpointed - still need to change the value
             t -= WEEK;
         }
@@ -153,9 +152,9 @@ contract GaugeController {
             _get_sum(gauge_type);
             _get_type_weight(gauge_type);
         }
-        
+
         for (uint256 i; i < 500; ++i) {
-            if(t > block.timestamp) break;
+            if (t > block.timestamp) break;
             t += WEEK;
             pt = 0;
             // Scales as n_types * n_unchecked_weeks (hopefully 1 at most)
@@ -167,7 +166,9 @@ contract GaugeController {
             }
             points_total[t] = pt;
 
-            if (t > block.timestamp){time_total = t;}
+            if (t > block.timestamp) {
+                time_total = t;
+            }
         }
         return pt;
     }
@@ -207,9 +208,9 @@ contract GaugeController {
     function add_gauge(address addr, int128 gauge_type) external onlyGovernance {
         require(gauge_type >= 0 && gauge_type < n_gauge_types, "Invalid gauge type");
         require(gauge_types_[addr] == 0, "Gauge already exists");
-        
+
         gauge_types_[addr] = gauge_type + 1;
-        uint256 next_time = (block.timestamp + WEEK) / WEEK * WEEK;
+        uint256 next_time = ((block.timestamp + WEEK) / WEEK) * WEEK;
 
         _change_gauge_weight(addr, 0);
 
@@ -218,7 +219,6 @@ contract GaugeController {
 
         emit NewGauge(addr, gauge_type);
     }
-
 
     /// @notice Remove a gauge, only callable by governance
     /// @dev Sets the gauge weight to 0
@@ -290,7 +290,7 @@ contract GaugeController {
         uint256 old_weight = _get_type_weight(type_id);
         uint256 old_sum = _get_sum(type_id);
         uint256 _total_weight = _get_total();
-        uint256 next_time = (block.timestamp + WEEK) / WEEK * WEEK;
+        uint256 next_time = ((block.timestamp + WEEK) / WEEK) * WEEK;
 
         _total_weight = _total_weight + old_sum * weight - old_sum * old_weight;
         points_total[next_time] = _total_weight;
@@ -307,7 +307,7 @@ contract GaugeController {
         int128 type_id = n_gauge_types;
         gauge_type_names[type_id] = _name;
         n_gauge_types = type_id + 1;
-        if(_weight != 0){
+        if (_weight != 0) {
             _change_type_weight(type_id, _weight);
         }
     }
@@ -402,7 +402,7 @@ contract GaugeController {
 
         int128 gauge_type = gauge_types_[_gauge_addr] - 1;
         require(gauge_type >= 0, "Gauge not added");
- 
+
         VotedSlope memory old_slope = vote_user_slopes[msg.sender][_gauge_addr];
         uint256 old_dt = 0;
         if (old_slope.end > next_time) old_dt = old_slope.end - next_time;
@@ -435,7 +435,9 @@ contract GaugeController {
             points_weight[_gauge_addr][next_time].slope =
                 Math.max(old_weight_slope + new_slope.slope, old_slope.slope) -
                 old_slope.slope;
-            points_sum[gauge_type][next_time].slope = Math.max(old_sum_slope + new_slope.slope, old_slope.slope) - old_slope.slope;
+            points_sum[gauge_type][next_time].slope =
+                Math.max(old_sum_slope + new_slope.slope, old_slope.slope) -
+                old_slope.slope;
         } else {
             points_weight[_gauge_addr][next_time].slope += new_slope.slope;
             points_sum[gauge_type][next_time].slope += new_slope.slope;
