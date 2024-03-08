@@ -15,6 +15,7 @@ contract GaugeControllerTest is Test {
     address internal user2;
     address internal gauge1;
     address internal gauge2;
+    address internal gauge3;
 
     VotingEscrow internal ve;
     GaugeController internal gc;
@@ -22,16 +23,34 @@ contract GaugeControllerTest is Test {
     uint256 constant WEEK = 7 days;
     uint256 MONTH = 4 weeks;
 
+    uint256[] TYPE_WEIGHTS = [1, 3];
+    string[] TYPE_NAMES = ["type0", "type1"];
+
     function setUp() public {
         utils = new Utilities();
-        users = utils.createUsers(5);
-        (gov, user1, user2, gauge1, gauge2) = (users[0], users[1], users[2], users[3], users[4]);
+        users = utils.createUsers(6);
+        (gov, user1, user2, gauge1, gauge2, gauge3) = (users[0], users[1], users[2], users[3], users[4], users[5]);
 
         ve = new VotingEscrow("VotingEscrow", "VE");
         gc = new GaugeController(address(ve), address(gov));
 
         vm.prank(gov);
-        gc.add_type("Gauge Type 1", 1);
+        gc.add_type(TYPE_NAMES[0], TYPE_WEIGHTS[0]);
+    }
+
+    function testAddType() public {
+        vm.prank(gov);
+        gc.add_type(TYPE_NAMES[1], TYPE_WEIGHTS[1]); 
+
+        assertEq(gc.get_type_weight(0), TYPE_WEIGHTS[0]);
+        assertEq(gc.get_type_weight(1), TYPE_WEIGHTS[1]);
+    }
+
+    function testChangeTypeWeight() public {
+        vm.prank(gov);
+        gc.change_type_weight(0, TYPE_WEIGHTS[0] + 1); 
+
+        assertEq(gc.get_type_weight(0), TYPE_WEIGHTS[0] + 1);
     }
 
     function testAddGauge() public {
@@ -42,6 +61,13 @@ contract GaugeControllerTest is Test {
         gc.add_gauge(user1, 0);
         
         assertTrue(gc.gauge_types(user1) == 0);
+    }
+
+    function testAddGaugeInvalidType() public {
+        vm.prank(gov);
+
+        vm.expectRevert("Invalid gauge type");
+        gc.add_gauge(user1, 1);
     }
 
     function testAddGaugeExistingGauge() public {
@@ -294,6 +320,43 @@ contract GaugeControllerTest is Test {
 
         assertApproxEqRel(rel_weight1, (weights[0] * 1e18) / 1e2, 0.01e18);
         assertApproxEqRel(rel_weight2, (weights[1] * 1e18) / 1e2, 0.01e18);
+    }
+
+    function testRelativeWeightWriteMultipleTypes() public {
+        vm.startPrank(gov);
+        gc.add_type(TYPE_NAMES[1], TYPE_WEIGHTS[1]); // 40% for type0, 60% for type1
+        gc.add_gauge(gauge1, 0);
+        gc.add_gauge(gauge2, 0);
+        gc.add_gauge(gauge3, 1);
+        uint256[3] memory weights = [uint256(40), 40, 20];
+        vm.stopPrank();
+        vm.startPrank(user1);
+        ve.createLock{value: 1 ether}(1 ether);
+        gc.vote_for_gauge_weights(gauge1, weights[0]); // vote 40% for gauge1
+        gc.vote_for_gauge_weights(gauge2, weights[1]); // vote 40% for gauge2
+        gc.vote_for_gauge_weights(gauge3, weights[2]); // vote 20% for gauge2
+
+        skip(MONTH);
+
+        uint256 base_rel_weight1 = gc.gauge_relative_weight(gauge1, block.timestamp);
+        uint256 base_rel_weight2 = gc.gauge_relative_weight(gauge2, block.timestamp);
+        uint256 base_rel_weight3 = gc.gauge_relative_weight(gauge3, block.timestamp);
+
+        assertEq(base_rel_weight1, 0);
+        assertEq(base_rel_weight2, 0);
+        assertEq(base_rel_weight3, 0);
+
+        gc.gauge_relative_weight_write(gauge1, block.timestamp);
+        gc.gauge_relative_weight_write(gauge2, block.timestamp);
+        gc.gauge_relative_weight_write(gauge3, block.timestamp);
+
+        uint256 rel_weight1 = gc.gauge_relative_weight(gauge1, block.timestamp);
+        uint256 rel_weight2 = gc.gauge_relative_weight(gauge2, block.timestamp);
+        uint256 rel_weight3 = gc.gauge_relative_weight(gauge3, block.timestamp);
+
+        assertApproxEqRel(rel_weight1, (weights[0] * 1e18) * 3 / (4 * 1e2), 0.1e18);
+        assertApproxEqRel(rel_weight2, (weights[1] * 1e18) * 3 / (4 * 1e2), 0.1e18);
+        assertApproxEqRel(rel_weight3, (weights[2] * 1e18) * 2 / (1 * 1e2), 0.1e18);
     }
 
     function testVoteOverPowerReverts() public {
