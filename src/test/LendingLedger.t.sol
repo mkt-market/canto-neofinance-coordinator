@@ -6,7 +6,6 @@ import {Utilities} from "./utils/Utilities.sol";
 // import {console} from "./utils/Console.sol";
 
 import "../LendingLedger.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract DummyGaugeController {
     function gauge_relative_weight_write(address _gauge, uint256 _time) external returns (uint256) {
@@ -20,7 +19,6 @@ contract LendingLedgerTest is Test {
 
     LendingLedger ledger;
     DummyGaugeController controller;
-
     address goverance;
 
     uint256 public constant WEEK = 7 days;
