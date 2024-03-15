@@ -3,6 +3,7 @@ pragma solidity ^0.8.16;
 
 import {VotingEscrow} from "./VotingEscrow.sol";
 import {GaugeController} from "./GaugeController.sol";
+import {LiquidityGauge} from "./LiquidityGauge.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -41,6 +42,8 @@ contract LendingLedger {
 
     /// @dev Lending Market => Epoch => Balance
     mapping(address => uint256) public lendingMarketTotalBalance; // Total balance locked within the market
+
+    mapping(address => address) public liquidityGauges;
 
     modifier onlyGovernance() {
         require(msg.sender == governance);
@@ -87,44 +90,6 @@ contract LendingLedger {
             }
             market.lastRewardBlock = uint64(block.number);
         }
-    }
-
-    /// @notice Function called by user to deposit market tokens
-    /// @param _token Market token address to be deposited
-    /// @param _amount The amount of token to be deposited
-    function depositMarketToken(address _token, uint256 _amount) external {
-        address _user = msg.sender;
-        update_market(_token); // Checks if the market is whitelisted
-        MarketInfo storage market = marketInfo[_token];
-        UserInfo storage user = userInfo[_token][_user];
-
-        user.amount += uint256(_amount);
-        user.rewardDebt += int256((uint256(_amount) * market.accCantoPerShare) / 1e18);
-        user.secRewardDebt += int256((uint256(_amount) * market.secRewardsPerShare) / 1e18);
-
-        lendingMarketTotalBalance[_token] = lendingMarketTotalBalance[_token] + _amount;
-
-        IERC20(_token).safeTransferFrom(_user, address(this), _amount);
-    }
-
-    /// @notice Function called by the user to withdraw market tokens
-    /// @param _token Market token address to be withdrawn
-    /// @param _amount The amount of token to be withdrawn
-    function withdrawMarketToken(address _token, uint256 _amount) external {
-        address _user = msg.sender;
-        update_market(_token); // Checks if the market is whitelisted
-        MarketInfo storage market = marketInfo[_token];
-        UserInfo storage user = userInfo[_token][_user];
-
-        require(user.amount >= _amount, "amount exceeds deposit");
-
-        user.amount -= uint256(_amount);
-        user.rewardDebt -= int256((uint256(_amount) * market.accCantoPerShare) / 1e18);
-        user.secRewardDebt -= int256((uint256(_amount) * market.secRewardsPerShare) / 1e18);
-
-        lendingMarketTotalBalance[_token] = lendingMarketTotalBalance[_token] - _amount;
-
-        IERC20(_token).safeTransfer(_user, _amount);
     }
 
     /// @notice Function that is called by the lending market on cNOTE deposits / withdrawals
@@ -185,7 +150,14 @@ contract LendingLedger {
     /// @notice Used by governance to whitelist a lending market
     /// @param _market Address of the market to whitelist
     /// @param _isWhiteListed Whether the market is whitelisted or not
-    function whiteListLendingMarket(address _market, bool _isWhiteListed) external onlyGovernance {
+    function whiteListLendingMarket(address _market, bool _isWhiteListed, bool _hasGauge) external onlyGovernance {
+        if(_hasGauge){
+            if(liquidityGauges[_market] == address(0)){
+                LiquidityGauge liquidityGauge = new LiquidityGauge(_market, address(this));
+                liquidityGauges[_market] = address(liquidityGauge);
+            }
+            _market = liquidityGauges[_market];
+        }
         require(lendingMarketWhitelist[_market] != _isWhiteListed, "No change");
         lendingMarketWhitelist[_market] = _isWhiteListed;
         if (_isWhiteListed) {
