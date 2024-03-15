@@ -147,8 +147,7 @@ contract GaugeController {
         }
         uint256 pt = points_total[t];
 
-        for (int128 gauge_type; gauge_type < 100; ++gauge_type) {
-            if (gauge_type == _n_gauge_types) break;
+        for (int128 gauge_type; gauge_type < _n_gauge_types; ++gauge_type) {
             _get_sum(gauge_type);
             _get_type_weight(gauge_type);
         }
@@ -157,9 +156,7 @@ contract GaugeController {
             if (t > block.timestamp) break;
             t += WEEK;
             pt = 0;
-            // Scales as n_types * n_unchecked_weeks (hopefully 1 at most)
-            for (int128 gauge_type; gauge_type < 100; ++gauge_type) {
-                if (gauge_type == _n_gauge_types) break;
+            for (int128 gauge_type; gauge_type < _n_gauge_types; ++gauge_type) {
                 uint256 type_sum = points_sum[gauge_type][t].bias;
                 uint256 type_weight = points_type_weight[gauge_type][t];
                 pt += type_sum * type_weight;
@@ -303,7 +300,6 @@ contract GaugeController {
     // @param _name Name of gauge type
     // @param weight Weight of gauge type
     function add_type(string memory _name, uint256 _weight) external onlyGovernance {
-        require(n_gauge_types < 100, "Gauge type limit reached");
         int128 type_id = n_gauge_types;
         gauge_type_names[type_id] = _name;
         n_gauge_types = type_id + 1;
