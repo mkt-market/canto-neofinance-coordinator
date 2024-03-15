@@ -61,9 +61,9 @@ contract LiquidityGaugeTest is Test {
         token.approve(address(liquidityGauge), amount);
         liquidityGauge.depositUnderlying(amount);
 
-        assertEq(token.balanceOf(lender), 1000 ether - amount); 
-        assertEq(liquidityGauge.balanceOf(lender), amount); 
-        
+        assertEq(token.balanceOf(lender), 1000 ether - amount);
+        assertEq(liquidityGauge.balanceOf(lender), amount);
+
         uint256 ledgerBalance = ledger.lendingMarketTotalBalance(address(liquidityGauge));
         assertTrue(ledgerBalance == amount);
     }
@@ -77,7 +77,7 @@ contract LiquidityGaugeTest is Test {
         token.approve(address(liquidityGauge), amount);
 
         vm.expectRevert("ERC20: transfer amount exceeds balance");
-        liquidityGauge.depositUnderlying(amount); 
+        liquidityGauge.depositUnderlying(amount);
     }
 
     function testWithdrawUnderlying() public {
@@ -87,15 +87,15 @@ contract LiquidityGaugeTest is Test {
         uint256 withdrawAmount = 1 ether;
 
         vm.startPrank(lender);
-        
+
         token.approve(address(liquidityGauge), depositAmount);
         liquidityGauge.depositUnderlying(depositAmount);
-        
+
         liquidityGauge.approve(address(liquidityGauge), withdrawAmount);
         liquidityGauge.withdrawUnderlying(withdrawAmount);
 
-        assertEq(token.balanceOf(lender), 1000 ether - depositAmount + withdrawAmount); 
-        assertEq(liquidityGauge.balanceOf(lender), depositAmount - withdrawAmount); 
+        assertEq(token.balanceOf(lender), 1000 ether - depositAmount + withdrawAmount);
+        assertEq(liquidityGauge.balanceOf(lender), depositAmount - withdrawAmount);
 
         uint256 ledgerBalance = ledger.lendingMarketTotalBalance(address(liquidityGauge));
         assertTrue(ledgerBalance == depositAmount - withdrawAmount);
@@ -108,10 +108,10 @@ contract LiquidityGaugeTest is Test {
         uint256 withdrawAmount = 1.2 ether;
 
         vm.startPrank(lender);
-        
+
         token.approve(address(liquidityGauge), depositAmount);
         liquidityGauge.depositUnderlying(depositAmount);
-        
+
         liquidityGauge.approve(address(liquidityGauge), withdrawAmount);
 
         vm.expectRevert("ERC20: burn amount exceeds balance");

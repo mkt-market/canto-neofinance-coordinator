@@ -82,12 +82,8 @@ contract LendingLedgerTest is Test {
 
     function testAddWhitelistWithGauge() public {
         address lendingMarket = vm.addr(5201314);
-        
-        vm.mockCall(
-            lendingMarket,
-            abi.encodeWithSelector(ERC20.symbol.selector),
-            abi.encode("LM")
-        );
+
+        vm.mockCall(lendingMarket, abi.encodeWithSelector(ERC20.symbol.selector), abi.encode("LM"));
 
         vm.startPrank(goverance);
         ledger.whiteListLendingMarket(lendingMarket, true, true);

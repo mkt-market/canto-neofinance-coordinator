@@ -148,9 +148,13 @@ contract LendingLedger {
     /// @notice Used by governance to whitelist a lending market
     /// @param _market Address of the market to whitelist
     /// @param _isWhiteListed Whether the market is whitelisted or not
-    function whiteListLendingMarket(address _market, bool _isWhiteListed, bool _hasGauge) external onlyGovernance {
-        if(_hasGauge){
-            if(liquidityGauges[_market] == address(0)){
+    function whiteListLendingMarket(
+        address _market,
+        bool _isWhiteListed,
+        bool _hasGauge
+    ) external onlyGovernance {
+        if (_hasGauge) {
+            if (liquidityGauges[_market] == address(0)) {
                 LiquidityGauge liquidityGauge = new LiquidityGauge(_market, address(this));
                 liquidityGauges[_market] = address(liquidityGauge);
             }

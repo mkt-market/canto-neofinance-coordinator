@@ -19,15 +19,17 @@ contract LiquidityGauge is ERC20, ERC20Burnable {
     address public lendingLedger;
     address public underlyingToken;
 
-    constructor(address _underlyingToken, address _lendingLedger) ERC20(
-        string.concat(ERC20(_underlyingToken).symbol(), " NeoFinance Gauge"),
-        string.concat(ERC20(_underlyingToken).symbol(), "-gauge")
-    ) {
-        underlyingToken =_underlyingToken;
+    constructor(address _underlyingToken, address _lendingLedger)
+        ERC20(
+            string.concat(ERC20(_underlyingToken).symbol(), " NeoFinance Gauge"),
+            string.concat(ERC20(_underlyingToken).symbol(), "-gauge")
+        )
+    {
+        underlyingToken = _underlyingToken;
         lendingLedger = _lendingLedger;
     }
 
-     /// @notice Function called by user to deposit market tokens
+    /// @notice Function called by user to deposit market tokens
     /// @param _amount The amount of token to be deposited
     function depositUnderlying(uint256 _amount) external {
         address _user = msg.sender;
@@ -45,15 +47,17 @@ contract LiquidityGauge is ERC20, ERC20Burnable {
         IERC20(underlyingToken).safeTransfer(_user, _amount);
     }
 
-    function _afterTokenTransfer(address from, address to, uint256 amount) internal virtual override {
+    function _afterTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual override {
         super._afterTokenTransfer(from, to, amount);
-        if(from != address(0)){
+        if (from != address(0)) {
             LendingLedger(lendingLedger).sync_ledger(from, -int256(amount));
-        }   
-        if(to != address(0)){
+        }
+        if (to != address(0)) {
             LendingLedger(lendingLedger).sync_ledger(to, int256(amount));
-        }   
+        }
     }
 }
-
-
