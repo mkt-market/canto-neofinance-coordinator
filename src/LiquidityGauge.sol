@@ -19,20 +19,11 @@ contract LiquidityGauge is ERC20, ERC20Burnable {
     address public lendingLedger;
     address public underlyingToken;
 
-    modifier onlyLedger() {
-        require(msg.sender == lendingLedger);
-        _;
-    }
-
     constructor(address _underlyingToken, address _lendingLedger) ERC20(
         string.concat(ERC20(_underlyingToken).symbol(), " NeoFinance Gauge"),
         string.concat(ERC20(_underlyingToken).symbol(), "-gauge")
     ) {
         underlyingToken =_underlyingToken;
-        lendingLedger = _lendingLedger;
-    }
-
-    function setLedger(address _lendingLedger) external onlyLedger {
         lendingLedger = _lendingLedger;
     }
 
@@ -49,10 +40,9 @@ contract LiquidityGauge is ERC20, ERC20Burnable {
     /// @param _amount The amount of token to be withdrawn
     function withdrawUnderlying(uint256 _amount) external {
         address _user = msg.sender;
-        require(balanceOf(_user) >= _amount, "amount exceeds deposit");
 
         _burn(_user, _amount);
-        IERC20(underlyingToken).safeTransfer(address(this), _amount);
+        IERC20(underlyingToken).safeTransfer(_user, _amount);
     }
 
     function _afterTokenTransfer(address from, address to, uint256 amount) internal virtual override {

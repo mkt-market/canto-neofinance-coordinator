@@ -8,8 +8,6 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract LendingLedger {
-    using SafeERC20 for IERC20;
-
     // Constants
     uint256 public constant BLOCK_EPOCH = 100_000; // 100000 blocks, roughly 1 week
     uint256 public averageBlockTime = 5700; // Average block time in milliseconds
