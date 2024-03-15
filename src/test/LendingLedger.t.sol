@@ -26,7 +26,7 @@ contract LendingLedgerTest is Test {
 
     LendingLedger ledger;
     DummyGaugeController controller;
-    MockERC20 marketToken;
+    MockERC20 lpToken;
 
     address goverance;
 
@@ -184,39 +184,43 @@ contract LendingLedgerTest is Test {
         assertEq(totalBalance, uint256(deltaStart) + uint256(deltaEnd));
     }
 
-    function setupMarketToken() internal {
-        vm.startPrank(lender);
-        marketToken = new MockERC20();
-        marketToken.approve(address(ledger), 1.1 ether);
-        vm.stopPrank();
+    function setupLiquidityGauge() internal {
+        vm.prank(lender);
+        lpToken = new MockERC20();
 
-        vm.startPrank(goverance);
-        ledger.whiteListLendingMarket(address(marketToken), true, false);
-        vm.stopPrank();
+        vm.prank(goverance);
+        ledger.whiteListLendingMarket(address(lpToken), true, true);
     }
 
-    // function testDepositMarketToken() public {
-    //     setupMarketToken();
+    function testDepositLiquidityGauge() public {
+        setupLiquidityGauge();
 
-    //     uint256 amount = 1.1 ether;
-    //     vm.startPrank(lender);
-    //     ledger.depositMarketToken(address(marketToken), amount, false);
+        uint256 amount = 1.1 ether;
 
-    //     uint256 lendingMarketTotal = ledger.lendingMarketTotalBalance(address(marketToken));
-    //     assertTrue(lendingMarketTotal == amount);
-    // }
+        vm.startPrank(lender);
+        address lpGauge = ledger.liquidityGauges(address(lpToken));
+        lpToken.approve(address(lpGauge), 1.1 ether);
+        LiquidityGauge(lpGauge).depositUnderlying(amount);
+
+        uint256 lpTotal = ledger.lendingMarketTotalBalance(lpGauge);
+        assertTrue(lpTotal == amount);
+    }
 
     // function testWithdrawMarketToken() public {
-    //     setupMarketToken();
+    //     setupLiquidityGauge();
 
     //     uint256 depositAmount = 1.1 ether;
     //     uint256 withdrawAmount = 1 ether;
-    //     vm.startPrank(lender);
-    //     ledger.depositMarketToken(address(marketToken), depositAmount);
-    //     ledger.withdrawMarketToken(address(marketToken), withdrawAmount);
 
-    //     uint256 lendingMarketTotal = ledger.lendingMarketTotalBalance(address(marketToken));
-    //     assertTrue(lendingMarketTotal == depositAmount - withdrawAmount);
+    //     vm.startPrank(lender);
+    //     address lpGauge = ledger.liquidityGauges(address(lpToken));
+    //     lpToken.approve(address(lpGauge), 1.1 ether);
+    //     LiquidityGauge(lpGauge).depositUnderlying(depositAmount);
+    //     LiquidityGauge(lpGauge).depositUnderlying(withdrawAmount);
+
+
+    //     uint256 lpTotal = ledger.lendingMarketTotalBalance(lpGauge);
+    //     assertTrue(lpTotal == depositAmount - withdrawAmount);
     // }
 
     // function testInvalidWithdrawMarketToken() public {

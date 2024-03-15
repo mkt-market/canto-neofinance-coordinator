@@ -25,7 +25,7 @@ contract LiquidityGauge is ERC20, ERC20Burnable {
     }
 
     constructor(address _underlyingToken, address _lendingLedger) ERC20(
-        string.concat(ERC20(_underlyingToken).symbol(), "NeoFinance Gauge"),
+        string.concat(ERC20(_underlyingToken).symbol(), " NeoFinance Gauge"),
         string.concat(ERC20(_underlyingToken).symbol(), "-gauge")
     ) {
         underlyingToken =_underlyingToken;
@@ -42,7 +42,6 @@ contract LiquidityGauge is ERC20, ERC20Burnable {
         address _user = msg.sender;
 
         IERC20(underlyingToken).safeTransferFrom(_user, address(this), _amount);
-        LendingLedger(lendingLedger).sync_ledger(_user, int256(_amount));
         _mint(_user, _amount);
     }
 
@@ -54,7 +53,16 @@ contract LiquidityGauge is ERC20, ERC20Burnable {
 
         _burn(_user, _amount);
         IERC20(underlyingToken).safeTransfer(address(this), _amount);
-        LendingLedger(lendingLedger).sync_ledger(_user, -int256(_amount));
+    }
+
+    function _afterTokenTransfer(address from, address to, uint256 amount) internal virtual override {
+        super._afterTokenTransfer(from, to, amount);
+        if(from != address(0)){
+            LendingLedger(lendingLedger).sync_ledger(from, -int256(amount));
+        }   
+        if(to != address(0)){
+            LendingLedger(lendingLedger).sync_ledger(to, int256(amount));
+        }   
     }
 }
 
