@@ -23,7 +23,7 @@ contract GaugeController {
     VotingEscrow public votingEscrow;
     address public governance;
 
-    int128 n_gauge_types;
+    int128 public n_gauge_types;
     mapping(int128 => string) public gauge_type_names;
     // we increment values by 1 prior to storing them here so we can rely on a value
     // of zero as meaning the gauge has not been set
