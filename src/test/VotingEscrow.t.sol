@@ -56,7 +56,7 @@ contract VotingEscrowTest is Test {
         testSuccessCreateLock();
 
         vm.prank(governance);
-        ve.setUnlockOverride(true);
+        ve.toggleUnlockOverride();
 
         uint256 startBalance = address(user1).balance;
         vm.prank(user1);

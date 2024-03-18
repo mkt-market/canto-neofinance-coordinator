@@ -97,10 +97,9 @@ contract VotingEscrow is ReentrancyGuard {
         governance = _governance;
     }
 
-    /// @notice Set unlock override
-    /// @param _unlockOverride Unlocks all withdrawals if set to true
-    function setUnlockOverride(bool _unlockOverride) external onlyGovernance {
-        unlockOverride = _unlockOverride;
+    /// @notice Toggle unlock override
+    function toggleUnlockOverride() external onlyGovernance {
+        unlockOverride = !unlockOverride;
     }
 
     /// ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
