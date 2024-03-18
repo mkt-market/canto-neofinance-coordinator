@@ -27,6 +27,7 @@ contract VotingEscrow is ReentrancyGuard {
     uint256 public decimals = 18;
 
     // Shared global state
+    address public governance;
     uint256 public constant WEEK = 7 days;
     uint256 public constant LOCKTIME = 1825 days;
     uint256 public constant MULTIPLIER = 10**18;
@@ -38,6 +39,7 @@ contract VotingEscrow is ReentrancyGuard {
     mapping(address => uint256) public userPointEpoch;
     mapping(uint256 => int128) public slopeChanges;
     mapping(address => LockedBalance) public locked;
+    bool public unlockOverride;
 
     // Structs
     struct Point {
@@ -65,13 +67,40 @@ contract VotingEscrow is ReentrancyGuard {
         UNDELEGATE
     }
 
+    modifier onlyGovernance() {
+        require(msg.sender == governance);
+        _;
+    }
+
     /// @notice Initializes state
     /// @param _name The name of the voting token
     /// @param _symbol The symbol of the voting token
-    constructor(string memory _name, string memory _symbol) {
+    /// @param _governance The governance address
+    constructor(
+        string memory _name,
+        string memory _symbol,
+        address _governance
+    ) {
         pointHistory[0] = Point({bias: int128(0), slope: int128(0), ts: block.timestamp, blk: block.number});
         name = _name;
         symbol = _symbol;
+        governance = _governance;
+    }
+
+    /// ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
+    ///          GOVERNANCE         ///
+    /// ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
+
+    /// @notice Set governance address
+    /// @param _governance New governance address
+    function setGovernance(address _governance) external onlyGovernance {
+        governance = _governance;
+    }
+
+    /// @notice Set unlock override
+    /// @param _unlockOverride Unlocks all withdrawals if set to true
+    function setUnlockOverride(bool _unlockOverride) external onlyGovernance {
+        unlockOverride = _unlockOverride;
     }
 
     /// ~~~~~~~~~~~~~~~~~~~~~~~~~~~ ///
@@ -326,7 +355,7 @@ contract VotingEscrow is ReentrancyGuard {
         LockedBalance memory locked_ = locked[msg.sender];
         // Validate inputs
         require(locked_.amount > 0, "No lock");
-        require(locked_.end <= block.timestamp, "Lock not expired");
+        require(locked_.end <= block.timestamp || unlockOverride, "Lock not expired");
         require(locked_.delegatee == msg.sender, "Lock delegated");
         // Update lock
         uint256 amountToSend = uint256(uint128(locked_.amount));
