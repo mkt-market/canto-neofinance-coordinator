@@ -41,7 +41,7 @@ contract LendingLedger {
     /// @dev Lending Market => Epoch => Balance
     mapping(address => uint256) public lendingMarketTotalBalance; // Total balance locked within the market
 
-    mapping(address => address) public liquidityGauges;
+    mapping(address => address) public liquidityGauges; // Two way mapping for markets with liquidity gauge enabled
 
     modifier onlyGovernance() {
         require(msg.sender == governance);
@@ -95,6 +95,9 @@ contract LendingLedger {
     /// @param _delta The amount of cNote deposited (positive) or withdrawn (negative)
     function sync_ledger(address _lender, int256 _delta) external {
         address lendingMarket = msg.sender;
+        // check if liquidity gauge is being used for the market
+        if (liquidityGauges[lendingMarket] != address(0)) lendingMarket = liquidityGauges[lendingMarket];
+
         update_market(lendingMarket); // Checks if the market is whitelisted
         MarketInfo storage market = marketInfo[lendingMarket];
         UserInfo storage user = userInfo[lendingMarket][_lender];
@@ -153,14 +156,14 @@ contract LendingLedger {
         bool _isWhiteListed,
         bool _hasGauge
     ) external onlyGovernance {
-        if (_hasGauge) {
-            if (liquidityGauges[_market] == address(0)) {
-                LiquidityGauge liquidityGauge = new LiquidityGauge(_market, address(this));
-                liquidityGauges[_market] = address(liquidityGauge);
-            }
-            _market = liquidityGauges[_market];
-        }
         require(lendingMarketWhitelist[_market] != _isWhiteListed, "No change");
+        if (_hasGauge && liquidityGauges[_market] == address(0)) {
+            LiquidityGauge liquidityGauge = new LiquidityGauge(_market, address(this));
+            liquidityGauges[_market] = address(liquidityGauge);
+            // add reverse also for reference in sync_ledger
+            liquidityGauges[address(liquidityGauge)] = _market;
+        }
+
         lendingMarketWhitelist[_market] = _isWhiteListed;
         if (_isWhiteListed) {
             marketInfo[_market].lastRewardBlock = uint64(block.number);

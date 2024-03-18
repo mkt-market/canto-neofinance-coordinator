@@ -64,7 +64,7 @@ contract LiquidityGaugeTest is Test {
         assertEq(token.balanceOf(lender), 1000 ether - amount);
         assertEq(liquidityGauge.balanceOf(lender), amount);
 
-        uint256 ledgerBalance = ledger.lendingMarketTotalBalance(address(liquidityGauge));
+        uint256 ledgerBalance = ledger.lendingMarketTotalBalance(address(token));
         assertTrue(ledgerBalance == amount);
     }
 
@@ -97,7 +97,7 @@ contract LiquidityGaugeTest is Test {
         assertEq(token.balanceOf(lender), 1000 ether - depositAmount + withdrawAmount);
         assertEq(liquidityGauge.balanceOf(lender), depositAmount - withdrawAmount);
 
-        uint256 ledgerBalance = ledger.lendingMarketTotalBalance(address(liquidityGauge));
+        uint256 ledgerBalance = ledger.lendingMarketTotalBalance(address(token));
         assertTrue(ledgerBalance == depositAmount - withdrawAmount);
     }
 
@@ -129,11 +129,11 @@ contract LiquidityGaugeTest is Test {
         liquidityGauge.transfer(governance, amount);
 
         uint256 ledgerBalance;
-        (ledgerBalance, , ) = ledger.userInfo(lender, address(liquidityGauge));
+        (ledgerBalance, , ) = ledger.userInfo(lender, address(token));
         assertEq(ledgerBalance, 0);
 
-        (ledgerBalance, , ) = ledger.userInfo(governance, address(liquidityGauge));
-        ledgerBalance = ledger.lendingMarketTotalBalance(address(liquidityGauge));
+        (ledgerBalance, , ) = ledger.userInfo(governance, address(token));
+        ledgerBalance = ledger.lendingMarketTotalBalance(address(token));
         assertEq(ledgerBalance, amount);
     }
 }

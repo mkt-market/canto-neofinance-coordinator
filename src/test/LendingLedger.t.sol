@@ -87,10 +87,9 @@ contract LendingLedgerTest is Test {
         vm.startPrank(goverance);
         ledger.whiteListLendingMarket(lendingMarket, true, true);
 
-        address liquidityGauge = ledger.liquidityGauges(lendingMarket);
-        assertNotEq(liquidityGauge, address(0));
+        assertNotEq(lendingMarket, address(0));
 
-        bool isWhitelisted = ledger.lendingMarketWhitelist(liquidityGauge);
+        bool isWhitelisted = ledger.lendingMarketWhitelist(lendingMarket);
         assertTrue(isWhitelisted);
     }
 
