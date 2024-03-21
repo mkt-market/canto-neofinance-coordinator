@@ -6,6 +6,7 @@ import {Utilities} from "./utils/Utilities.sol";
 // import {console} from "./utils/Console.sol";
 
 import "../LendingLedger.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract DummyGaugeController {
     function gauge_relative_weight_write(address _gauge, uint256 _time) external returns (uint256) {
@@ -57,7 +58,7 @@ contract LendingLedgerTest is Test {
         address lendingMarket = vm.addr(5201314);
 
         vm.prank(goverance);
-        ledger.whiteListLendingMarket(lendingMarket, true);
+        ledger.whiteListLendingMarket(lendingMarket, true, false);
 
         bool isWhitelisted = ledger.lendingMarketWhitelist(lendingMarket);
         assertTrue(isWhitelisted);
@@ -67,14 +68,28 @@ contract LendingLedgerTest is Test {
         address lendingMarket = vm.addr(5201314);
 
         vm.startPrank(goverance);
-        ledger.whiteListLendingMarket(lendingMarket, true);
+        ledger.whiteListLendingMarket(lendingMarket, true, false);
 
         bool isWhitelisted = ledger.lendingMarketWhitelist(lendingMarket);
         assertTrue(isWhitelisted);
 
         vm.expectRevert("No change");
-        ledger.whiteListLendingMarket(lendingMarket, true);
+        ledger.whiteListLendingMarket(lendingMarket, true, false);
 
+        assertTrue(isWhitelisted);
+    }
+
+    function testAddWhitelistWithGauge() public {
+        address lendingMarket = vm.addr(5201314);
+
+        vm.mockCall(lendingMarket, abi.encodeWithSelector(ERC20.symbol.selector), abi.encode("LM"));
+
+        vm.startPrank(goverance);
+        ledger.whiteListLendingMarket(lendingMarket, true, true);
+
+        assertNotEq(lendingMarket, address(0));
+
+        bool isWhitelisted = ledger.lendingMarketWhitelist(lendingMarket);
         assertTrue(isWhitelisted);
     }
 
@@ -82,12 +97,12 @@ contract LendingLedgerTest is Test {
         address lendingMarket = vm.addr(5201314);
 
         vm.startPrank(goverance);
-        ledger.whiteListLendingMarket(lendingMarket, true);
+        ledger.whiteListLendingMarket(lendingMarket, true, false);
 
         bool isWhitelisted = ledger.lendingMarketWhitelist(lendingMarket);
         assertTrue(isWhitelisted);
 
-        ledger.whiteListLendingMarket(lendingMarket, false);
+        ledger.whiteListLendingMarket(lendingMarket, false, false);
 
         isWhitelisted = ledger.lendingMarketWhitelist(lendingMarket);
         assertTrue(!isWhitelisted);
@@ -125,7 +140,7 @@ contract LendingLedgerTest is Test {
 
     function whiteListMarket() internal {
         vm.prank(goverance);
-        ledger.whiteListLendingMarket(lendingMarket, true);
+        ledger.whiteListLendingMarket(lendingMarket, true, false);
     }
 
     function testSyncLedgerUnderflow() public {

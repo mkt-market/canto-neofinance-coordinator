@@ -3,6 +3,7 @@ pragma solidity ^0.8.16;
 
 import {VotingEscrow} from "./VotingEscrow.sol";
 import {GaugeController} from "./GaugeController.sol";
+import {LiquidityGauge} from "./LiquidityGauge.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -39,6 +40,8 @@ contract LendingLedger {
 
     /// @dev Lending Market => Epoch => Balance
     mapping(address => uint256) public lendingMarketTotalBalance; // Total balance locked within the market
+
+    mapping(address => address) public liquidityGauges; // Two way mapping for markets with liquidity gauge enabled
 
     modifier onlyGovernance() {
         require(msg.sender == governance);
@@ -92,6 +95,9 @@ contract LendingLedger {
     /// @param _delta The amount of cNote deposited (positive) or withdrawn (negative)
     function sync_ledger(address _lender, int256 _delta) external {
         address lendingMarket = msg.sender;
+        // check if liquidity gauge is being used for the market
+        if (liquidityGauges[lendingMarket] != address(0)) lendingMarket = liquidityGauges[lendingMarket];
+
         update_market(lendingMarket); // Checks if the market is whitelisted
         MarketInfo storage market = marketInfo[lendingMarket];
         UserInfo storage user = userInfo[lendingMarket][_lender];
@@ -145,8 +151,19 @@ contract LendingLedger {
     /// @notice Used by governance to whitelist a lending market
     /// @param _market Address of the market to whitelist
     /// @param _isWhiteListed Whether the market is whitelisted or not
-    function whiteListLendingMarket(address _market, bool _isWhiteListed) external onlyGovernance {
+    function whiteListLendingMarket(
+        address _market,
+        bool _isWhiteListed,
+        bool _hasGauge
+    ) external onlyGovernance {
         require(lendingMarketWhitelist[_market] != _isWhiteListed, "No change");
+        if (_hasGauge && liquidityGauges[_market] == address(0)) {
+            LiquidityGauge liquidityGauge = new LiquidityGauge(_market, address(this));
+            liquidityGauges[_market] = address(liquidityGauge);
+            // add reverse also for reference in sync_ledger
+            liquidityGauges[address(liquidityGauge)] = _market;
+        }
+
         lendingMarketWhitelist[_market] = _isWhiteListed;
         if (_isWhiteListed) {
             marketInfo[_market].lastRewardBlock = uint64(block.number);
