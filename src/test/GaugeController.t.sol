@@ -27,7 +27,7 @@ contract GaugeControllerTest is Test {
         users = utils.createUsers(5);
         (gov, user1, user2, gauge1, gauge2) = (users[0], users[1], users[2], users[3], users[4]);
 
-        ve = new VotingEscrow("VotingEscrow", "VE");
+        ve = new VotingEscrow("VotingEscrow", "VE", address(gov));
         gc = new GaugeController(address(ve), address(gov));
     }
 

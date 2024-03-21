@@ -17,7 +17,7 @@ contract DeploymentScript is Script {
         string memory seedPhrase = vm.readFile(".secret");
         uint256 privateKey = vm.deriveKey(seedPhrase, 0);
         vm.startBroadcast(privateKey);
-        VotingEscrow votingEscrow = new VotingEscrow(name, symbol);
+        VotingEscrow votingEscrow = new VotingEscrow(name, symbol, governance);
         GaugeController gaugeController = new GaugeController(address(votingEscrow), governance);
         LendingLedger lendingLedger = new LendingLedger(address(gaugeController), governance);
         vm.stopBroadcast();

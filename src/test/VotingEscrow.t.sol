@@ -7,6 +7,7 @@ import "../VotingEscrow.sol";
 contract VotingEscrowTest is Test {
     VotingEscrow public ve;
 
+    address public constant governance = address(10000);
     address public constant user1 = address(10001);
     address public constant user2 = address(10002);
     address public constant user3 = address(10003);
@@ -14,7 +15,7 @@ contract VotingEscrowTest is Test {
     uint256 public constant LOCK_AMT = 1 ether;
 
     function setUp() public {
-        ve = new VotingEscrow("Voting Escrow", "VE");
+        ve = new VotingEscrow("Voting Escrow", "VE", governance);
         vm.deal(user1, 100 ether);
         vm.deal(user2, 100 ether);
         vm.deal(user3, 100 ether);
@@ -45,6 +46,18 @@ contract VotingEscrowTest is Test {
         testSuccessCreateLock();
         (, uint256 end, , ) = ve.locked(user1);
         vm.warp(end + 1);
+        uint256 startBalance = address(user1).balance;
+        vm.prank(user1);
+        ve.withdraw();
+        assertEq(address(user1).balance - startBalance, LOCK_AMT);
+    }
+
+    function testUnlockOverride() public {
+        testSuccessCreateLock();
+
+        vm.prank(governance);
+        ve.toggleUnlockOverride();
+
         uint256 startBalance = address(user1).balance;
         vm.prank(user1);
         ve.withdraw();
