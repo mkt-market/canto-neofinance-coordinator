@@ -16,6 +16,7 @@ contract GaugeController {
     uint256 public constant MULTIPLIER = 10**18;
 
     // Events
+    event NewType(string mame, int128 type_id);
     event NewGauge(address indexed gauge_address, int128 gauge_type);
     event GaugeRemoved(address indexed gauge_address);
 
@@ -306,6 +307,7 @@ contract GaugeController {
         if (_weight != 0) {
             _change_type_weight(type_id, _weight);
         }
+        emit NewType(_name, type_id);
     }
 
     // @notice Change gauge type `type_id` weight to `weight`
