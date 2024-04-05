@@ -399,7 +399,6 @@ contract GaugeController {
         require(lock_end > next_time, "Lock expires too soon");
 
         int128 gauge_type = gauge_types_[_gauge_addr] - 1;
-        require(gauge_type >= 0, "Gauge not added");
 
         VotedSlope memory old_slope = vote_user_slopes[msg.sender][_gauge_addr];
         uint256 old_dt = 0;
