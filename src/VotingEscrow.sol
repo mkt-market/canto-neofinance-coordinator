@@ -293,6 +293,7 @@ contract VotingEscrow is ReentrancyGuard {
 
     // See IVotingEscrow for documentation
     function createLock(uint256 _value) external payable nonReentrant {
+        require(!unlockOverride, "Unlock ovveride enabled");
         uint256 unlock_time = _floorToWeek(block.timestamp + LOCKTIME); // Locktime is rounded down to weeks
         LockedBalance memory locked_ = locked[msg.sender];
         // Validate inputs
@@ -313,6 +314,7 @@ contract VotingEscrow is ReentrancyGuard {
     // See IVotingEscrow for documentation
     // @dev A lock is active until both lock.amount==0 and lock.end<=block.timestamp
     function increaseAmount(uint256 _value) external payable nonReentrant {
+        require(!unlockOverride, "Unlock ovveride enabled");
         LockedBalance memory locked_ = locked[msg.sender];
         // Validate inputs
         require(_value > 0, "Only non zero amount");
