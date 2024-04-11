@@ -7,12 +7,23 @@ import {LiquidityGauge} from "./LiquidityGauge.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+interface BaseV1Factory {
+    function getPair(
+        address,
+        address,
+        bool
+    ) external view returns (address);
+}
+
 contract LendingLedger {
     // Constants
     uint256 public constant BLOCK_EPOCH = 100_000; // 100000 blocks, roughly 1 week
     uint256 public averageBlockTime = 5700; // Average block time in milliseconds
     uint256 public referenceBlockNumber;
     uint256 public referenceBlockTime; // Used to convert block numbers to timestamps together with averageBlockTime
+
+    address public constant WCANTO = 0x826551890Dc65655a0Aceca109aB11AbDbD7a07B;
+    BaseV1Factory public constant baseV1Factory = BaseV1Factory(0xE387067f12561e579C5f7d4294f51867E0c1cFba);
 
     // State
     address public governance;
@@ -154,11 +165,14 @@ contract LendingLedger {
     function whiteListLendingMarket(
         address _market,
         bool _isWhiteListed,
-        bool _hasGauge
+        bool _isLP
     ) external onlyGovernance {
         require(lendingMarketWhitelist[_market] != _isWhiteListed, "No change");
-        if (_hasGauge && liquidityGauges[_market] == address(0)) {
-            LiquidityGauge liquidityGauge = new LiquidityGauge(_market, address(this));
+        if (_isLP && liquidityGauges[_market] == address(0)) {
+            address pair = baseV1Factory.getPair(_market, WCANTO, false);
+            require(pair != address(0), "Liquidity pool not found for token");
+
+            LiquidityGauge liquidityGauge = new LiquidityGauge(pair, address(this));
             liquidityGauges[_market] = address(liquidityGauge);
             // add reverse also for reference in sync_ledger
             liquidityGauges[address(liquidityGauge)] = _market;
