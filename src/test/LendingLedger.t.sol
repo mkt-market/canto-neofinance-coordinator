@@ -99,6 +99,31 @@ contract LendingLedgerTest is Test {
         assertTrue(isWhitelisted);
     }
 
+    function testAddWhitelistWithGaugeCreatePair() public {
+        address lendingMarket = vm.addr(5201314);
+        address lpPool = vm.addr(5201315);
+
+        vm.mockCall(
+            address(ledger.baseV1Factory()),
+            abi.encodeWithSelector(BaseV1Factory.getPair.selector),
+            abi.encode(address(0))
+        );
+        vm.mockCall(
+            address(ledger.baseV1Factory()),
+            abi.encodeWithSelector(BaseV1Factory.createPair.selector),
+            abi.encode(lpPool)
+        );
+        vm.mockCall(lpPool, abi.encodeWithSelector(ERC20.symbol.selector), abi.encode("LM"));
+
+        vm.startPrank(goverance);
+        ledger.whiteListLendingMarket(lendingMarket, true, true);
+
+        assertNotEq(lendingMarket, address(0));
+
+        bool isWhitelisted = ledger.lendingMarketWhitelist(lendingMarket);
+        assertTrue(isWhitelisted);
+    }
+
     function testRemoveWhitelistEntry() public {
         address lendingMarket = vm.addr(5201314);
 
