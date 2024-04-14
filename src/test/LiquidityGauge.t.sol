@@ -30,6 +30,7 @@ contract LiquidityGaugeTest is Test {
 
     address governance;
     address lender;
+    address erc20Token;
 
     function setUp() public {
         utils = new Utilities();
@@ -40,16 +41,23 @@ contract LiquidityGaugeTest is Test {
 
         controller = new DummyGaugeController();
         ledger = new LendingLedger(address(controller), governance);
+        erc20Token = vm.addr(5201314);
     }
 
     function whitelistToken() public {
         vm.prank(lender);
         token = new MockERC20();
 
-        vm.prank(governance);
-        ledger.whiteListLendingMarket(address(token), true, true);
+        vm.mockCall(
+            address(ledger.baseV1Factory()),
+            abi.encodeWithSelector(BaseV1Factory.getPair.selector),
+            abi.encode(address(token))
+        );
 
-        liquidityGauge = LiquidityGauge(ledger.liquidityGauges(address(token)));
+        vm.prank(governance);
+        ledger.whiteListLendingMarket(erc20Token, true, true);
+
+        liquidityGauge = LiquidityGauge(ledger.liquidityGauges(address(erc20Token)));
     }
 
     function testDepositUnderlying() public {
@@ -64,7 +72,7 @@ contract LiquidityGaugeTest is Test {
         assertEq(token.balanceOf(lender), 1000 ether - amount);
         assertEq(liquidityGauge.balanceOf(lender), amount);
 
-        uint256 ledgerBalance = ledger.lendingMarketTotalBalance(address(token));
+        uint256 ledgerBalance = ledger.lendingMarketTotalBalance(address(erc20Token));
         assertTrue(ledgerBalance == amount);
     }
 
@@ -97,7 +105,7 @@ contract LiquidityGaugeTest is Test {
         assertEq(token.balanceOf(lender), 1000 ether - depositAmount + withdrawAmount);
         assertEq(liquidityGauge.balanceOf(lender), depositAmount - withdrawAmount);
 
-        uint256 ledgerBalance = ledger.lendingMarketTotalBalance(address(token));
+        uint256 ledgerBalance = ledger.lendingMarketTotalBalance(address(erc20Token));
         assertTrue(ledgerBalance == depositAmount - withdrawAmount);
     }
 
@@ -129,11 +137,11 @@ contract LiquidityGaugeTest is Test {
         liquidityGauge.transfer(governance, amount);
 
         uint256 ledgerBalance;
-        (ledgerBalance, , ) = ledger.userInfo(lender, address(token));
+        (ledgerBalance, , ) = ledger.userInfo(lender, address(erc20Token));
         assertEq(ledgerBalance, 0);
 
-        (ledgerBalance, , ) = ledger.userInfo(governance, address(token));
-        ledgerBalance = ledger.lendingMarketTotalBalance(address(token));
+        (ledgerBalance, , ) = ledger.userInfo(governance, address(erc20Token));
+        ledgerBalance = ledger.lendingMarketTotalBalance(address(erc20Token));
         assertEq(ledgerBalance, amount);
     }
 }
