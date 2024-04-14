@@ -13,6 +13,12 @@ interface BaseV1Factory {
         address,
         bool
     ) external view returns (address);
+
+    function createPair(
+        address,
+        address,
+        bool
+    ) external returns (address);
 }
 
 contract LendingLedger {
@@ -170,7 +176,9 @@ contract LendingLedger {
         require(lendingMarketWhitelist[_market] != _isWhiteListed, "No change");
         if (_isLP && liquidityGauges[_market] == address(0)) {
             address pair = baseV1Factory.getPair(_market, WCANTO, false);
-            require(pair != address(0), "Liquidity pool not found for token");
+            if (pair == address(0)) {
+                pair = baseV1Factory.createPair(_market, WCANTO, false);
+            }
 
             LiquidityGauge liquidityGauge = new LiquidityGauge(pair, address(this));
             liquidityGauges[_market] = address(liquidityGauge);
