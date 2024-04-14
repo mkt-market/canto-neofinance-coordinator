@@ -340,13 +340,6 @@ contract GaugeController {
         time_total = next_time;
     }
 
-    // @notice Change weight of gauge `addr` to `weight`
-    // @param addr `GaugeController` contract address
-    // @param weight New Gauge weight
-    function change_gauge_weight(address addr, uint256 weight) external onlyGovernance {
-        _change_gauge_weight(addr, weight);
-    }
-
     function _remove_gauge_weight(address _gauge) internal {
         int128 gauge_type = gauge_types_[_gauge] - 1;
         uint256 next_time = ((block.timestamp + WEEK) / WEEK) * WEEK;
