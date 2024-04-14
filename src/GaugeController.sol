@@ -223,8 +223,8 @@ contract GaugeController {
     /// @param _gauge The gauge address
     function remove_gauge(address _gauge) external onlyGovernance {
         require(gauge_types_[_gauge] != 0, "Invalid gauge address");
-        gauge_types_[_gauge] = 0;
         _remove_gauge_weight(_gauge);
+        gauge_types_[_gauge] = 0;
         emit GaugeRemoved(_gauge);
     }
 
