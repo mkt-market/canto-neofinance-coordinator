@@ -226,6 +226,7 @@ contract GaugeController {
         require(gauge_types_[_gauge] != 0 && !is_removed[_gauge], "Invalid gauge address");
         is_removed[_gauge] = true;
         _remove_gauge_weight(_gauge);
+        gauge_types_[_gauge] = 0;
         emit GaugeRemoved(_gauge);
     }
 
@@ -339,13 +340,6 @@ contract GaugeController {
         _total_weight = _total_weight + new_sum * type_weight - old_sum * type_weight;
         points_total[next_time] = _total_weight;
         time_total = next_time;
-    }
-
-    // @notice Change weight of gauge `addr` to `weight`
-    // @param addr `GaugeController` contract address
-    // @param weight New Gauge weight
-    function change_gauge_weight(address addr, uint256 weight) external onlyGovernance {
-        _change_gauge_weight(addr, weight);
     }
 
     function _remove_gauge_weight(address _gauge) internal {
