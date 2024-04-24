@@ -209,6 +209,8 @@ contract GaugeController {
         require(gauge_types_[addr] == 0 || is_removed[addr], "Gauge already exists");
 
         gauge_types_[addr] = gauge_type + 1;
+        if (is_removed[addr]) is_removed[addr] = false;
+
         uint256 next_time = ((block.timestamp + WEEK) / WEEK) * WEEK;
 
         _change_gauge_weight(addr, 0);
@@ -226,7 +228,6 @@ contract GaugeController {
         require(gauge_types_[_gauge] != 0 && !is_removed[_gauge], "Invalid gauge address");
         is_removed[_gauge] = true;
         _remove_gauge_weight(_gauge);
-        gauge_types_[_gauge] = 0;
         emit GaugeRemoved(_gauge);
     }
 
@@ -397,6 +398,7 @@ contract GaugeController {
         require(lock_end > next_time, "Lock expires too soon");
 
         int128 gauge_type = gauge_types_[_gauge_addr] - 1;
+        require(gauge_type >= 0, "Gauge not added");
 
         VotedSlope memory old_slope = vote_user_slopes[msg.sender][_gauge_addr];
         uint256 old_dt = 0;
