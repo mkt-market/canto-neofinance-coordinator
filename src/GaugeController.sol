@@ -29,6 +29,7 @@ contract GaugeController {
     // we increment values by 1 prior to storing them here so we can rely on a value
     // of zero as meaning the gauge has not been set
     mapping(address => int128) public gauge_types_;
+    mapping(address => bool) public is_removed;
 
     mapping(address => mapping(address => VotedSlope)) public vote_user_slopes;
     mapping(address => uint256) public vote_user_power;
@@ -205,9 +206,11 @@ contract GaugeController {
     /// @param gauge_type The gauge type
     function add_gauge(address addr, int128 gauge_type) external onlyGovernance {
         require(gauge_type >= 0 && gauge_type < n_gauge_types, "Invalid gauge type");
-        require(gauge_types_[addr] == 0, "Gauge already exists");
+        require(gauge_types_[addr] == 0 || is_removed[addr], "Gauge already exists");
 
         gauge_types_[addr] = gauge_type + 1;
+        if (is_removed[addr]) is_removed[addr] = false;
+
         uint256 next_time = ((block.timestamp + WEEK) / WEEK) * WEEK;
 
         _change_gauge_weight(addr, 0);
@@ -222,9 +225,9 @@ contract GaugeController {
     /// @dev Sets the gauge weight to 0
     /// @param _gauge The gauge address
     function remove_gauge(address _gauge) external onlyGovernance {
-        require(gauge_types_[_gauge] != 0, "Invalid gauge address");
+        require(gauge_types_[_gauge] != 0 && !is_removed[_gauge], "Invalid gauge address");
+        is_removed[_gauge] = true;
         _remove_gauge_weight(_gauge);
-        gauge_types_[_gauge] = 0;
         emit GaugeRemoved(_gauge);
     }
 
@@ -377,7 +380,10 @@ contract GaugeController {
     /// @param _user_weight Weight for a gauge in bps (units of 0.01%). Minimal is 0.01%. Ignored if 0
     function vote_for_gauge_weights(address _gauge_addr, uint256 _user_weight) external {
         require(_user_weight >= 0 && _user_weight <= 10_000, "Invalid user weight");
-        require(_user_weight == 0 || gauge_types_[_gauge_addr] != 0, "Can only vote 0 on non-gauges"); // We allow withdrawing voting power from invalid (removed) gauges
+        require(
+            _user_weight == 0 || (gauge_types_[_gauge_addr] != 0 && !is_removed[_gauge_addr]),
+            "Can only vote 0 on non-gauges"
+        ); // We allow withdrawing voting power from invalid (removed) gauges
         VotingEscrow ve = votingEscrow;
         (
             ,

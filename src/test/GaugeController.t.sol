@@ -87,8 +87,7 @@ contract GaugeControllerTest is Test {
         assertTrue(gc.gauge_types(user1) == 0);
 
         gc.remove_gauge(user1);
-        vm.expectRevert("Invalid gauge address");
-        gc.gauge_types(user1);
+        assertTrue(gc.is_removed(user1));
         assertTrue(gc.get_gauge_weight(user1) == 0);
 
         vm.stopPrank();
@@ -164,6 +163,26 @@ contract GaugeControllerTest is Test {
         ve.createLock{value: v}(v);
         gc.vote_for_gauge_weights(user1, 100);
         assertTrue(gc.get_gauge_weight(user1) > 100);
+    }
+
+    function testVoteZeroRemovedGauge() public {
+        // prepare
+        vm.deal(user1, 100 ether);
+        vm.startPrank(gov);
+        gc.add_gauge(user1, 0);
+        gc.remove_gauge(user1);
+        vm.stopPrank();
+
+        uint256 v = 10 ether;
+
+        vm.startPrank(user1);
+        ve.createLock{value: v}(v);
+
+        vm.expectRevert("Can only vote 0 on non-gauges");
+        gc.vote_for_gauge_weights(user1, 100);
+
+        gc.vote_for_gauge_weights(user1, 0);
+        assertTrue(gc.get_gauge_weight(user1) == 0);
     }
 
     function testVote10Percent() public {
