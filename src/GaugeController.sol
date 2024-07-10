@@ -18,6 +18,9 @@ contract GaugeController {
     // Events
     event NewType(string mame, int128 type_id);
     event NewGauge(address indexed gauge_address, int128 gauge_type);
+    event NewGaugeWeight(address indexed gauge_address, uint256 time, uint256 weight, uint256 total_weight);
+    event NewTypeWeight(int128 type_id, uint256 time, uint256 weight, uint256 total_weight);
+    event VoteForGauge(uint256 time, address user, address gauge_address, uint256 weight);
     event GaugeRemoved(address indexed gauge_address);
 
     // State
@@ -37,17 +40,17 @@ contract GaugeController {
 
     mapping(address => mapping(uint256 => Point)) public points_weight;
     mapping(address => mapping(uint256 => uint256)) public changes_weight;
-    mapping(address => uint256) time_weight;
+    mapping(address => uint256) public time_weight;
 
-    mapping(int128 => mapping(uint256 => Point)) points_sum;
-    mapping(int128 => mapping(uint256 => uint256)) changes_sum;
+    mapping(int128 => mapping(uint256 => Point)) public points_sum;
+    mapping(int128 => mapping(uint256 => uint256)) public changes_sum;
     mapping(int128 => uint256) public time_sum;
 
-    mapping(uint256 => uint256) points_total;
-    uint256 time_total;
+    mapping(uint256 => uint256) public points_total;
+    uint256 public time_total;
 
-    mapping(int128 => mapping(uint256 => uint256)) points_type_weight;
-    mapping(int128 => uint256) time_type_weight;
+    mapping(int128 => mapping(uint256 => uint256)) public points_type_weight;
+    mapping(int128 => uint256) public time_type_weight;
 
     struct Point {
         uint256 bias;
@@ -298,6 +301,8 @@ contract GaugeController {
         points_type_weight[type_id][next_time] = weight;
         time_total = next_time;
         time_type_weight[type_id] = next_time;
+
+        emit NewTypeWeight(type_id, block.timestamp, weight, _total_weight);
     }
 
     // @notice Add gauge type with name `_name` and weight `weight`
@@ -341,6 +346,8 @@ contract GaugeController {
         _total_weight = _total_weight + new_sum * type_weight - old_sum * type_weight;
         points_total[next_time] = _total_weight;
         time_total = next_time;
+
+        emit NewGaugeWeight(addr, block.timestamp, weight, _total_weight);
     }
 
     function _remove_gauge_weight(address _gauge) internal {
@@ -463,6 +470,8 @@ contract GaugeController {
 
         // Record last action time
         last_user_vote[msg.sender][_gauge_addr] = block.timestamp;
+
+        emit VoteForGauge(block.timestamp, msg.sender, _gauge_addr, _user_weight);
     }
 
     /// @notice Get current gauge weight

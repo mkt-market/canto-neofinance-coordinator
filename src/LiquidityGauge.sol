@@ -15,6 +15,9 @@ contract LiquidityGauge is ERC20, ERC20Burnable {
     address public lendingLedger;
     address public underlyingToken;
 
+    event Deposit(address indexed provider, uint256 value);
+    event Withdraw(address indexed provider, uint256 value);
+
     constructor(address _underlyingToken, address _lendingLedger)
         ERC20(
             string.concat(ERC20(_underlyingToken).symbol(), " NeoFinance Gauge"),
@@ -32,6 +35,8 @@ contract LiquidityGauge is ERC20, ERC20Burnable {
 
         IERC20(underlyingToken).safeTransferFrom(_user, address(this), _amount);
         _mint(_user, _amount);
+
+        emit Deposit(_user, _amount);
     }
 
     /// @notice Function called by the user to withdraw underlying tokens
@@ -41,6 +46,8 @@ contract LiquidityGauge is ERC20, ERC20Burnable {
 
         _burn(_user, _amount);
         IERC20(underlyingToken).safeTransfer(_user, _amount);
+
+        emit Withdraw(_user, _amount);
     }
 
     function _afterTokenTransfer(
